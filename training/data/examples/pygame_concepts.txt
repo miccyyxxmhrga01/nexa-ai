@@ -1,0 +1,759 @@
+<<<PROMPT>>>
+How do sprites and sprite groups work in pygame?
+<<<PROMPT>>>
+Make bouncing balls as pygame sprites that I can click to remove.
+<<<ANSWER>>>
+A sprite is a class with an `image` and a `rect`. Put sprites in a `Group` and you can update and draw them all with one call each:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Click the balls")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 36)
+
+
+class Ball(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.radius = random.randint(15, 35)
+        self.image = pygame.Surface((self.radius * 2, self.radius * 2), pygame.SRCALPHA)
+        color = (random.randint(80, 255), random.randint(80, 255), random.randint(80, 255))
+        pygame.draw.circle(self.image, color, (self.radius, self.radius), self.radius)
+        self.rect = self.image.get_rect(center=(random.randint(50, WIDTH - 50), random.randint(50, HEIGHT - 50)))
+        self.pos = pygame.Vector2(self.rect.center)
+        self.vel = pygame.Vector2(random.uniform(-200, 200), random.uniform(-200, 200))
+
+    def update(self, dt):
+        self.pos += self.vel * dt
+        if self.pos.x < self.radius or self.pos.x > WIDTH - self.radius:
+            self.vel.x = -self.vel.x
+            self.pos.x = max(self.radius, min(WIDTH - self.radius, self.pos.x))
+        if self.pos.y < self.radius or self.pos.y > HEIGHT - self.radius:
+            self.vel.y = -self.vel.y
+            self.pos.y = max(self.radius, min(HEIGHT - self.radius, self.pos.y))
+        self.rect.center = (round(self.pos.x), round(self.pos.y))
+
+
+balls = pygame.sprite.Group(Ball() for _ in range(12))
+popped = 0
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for ball in balls:
+                if ball.rect.collidepoint(event.pos):
+                    ball.kill()  # removes it from every group
+                    popped += 1
+                    break
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            balls.add(Ball())
+
+    balls.update(dt)  # calls update(dt) on every sprite
+
+    screen.fill((20, 20, 30))
+    balls.draw(screen)  # blits each sprite's image at its rect
+    screen.blit(font.render(f"Popped: {popped}   Left: {len(balls)}   SPACE adds a ball", True, (255, 255, 255)), (10, 10))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `super().__init__()` is required in every sprite class, and `Group.draw()` needs the attributes to be named exactly `image` and `rect`.
+- `balls.update(dt)` passes its arguments on to each sprite's `update()`.
+- `sprite.kill()` takes a sprite out of all its groups, so it stops being updated and drawn.
+- `pygame.SRCALPHA` gives the surface a transparent background, so the balls aren't drawn as squares.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I make a title screen, the game, and a game over screen in pygame?
+<<<PROMPT>>>
+How do game states work in pygame?
+<<<ANSWER>>>
+Keep a `state` variable and do different handling, updating and drawing depending on it. Here the game is "click the moving target as many times as you can in 15 seconds":
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Game States")
+clock = pygame.time.Clock()
+big = pygame.font.Font(None, 80)
+font = pygame.font.Font(None, 36)
+
+state = "title"   # "title" -> "playing" -> "game_over" -> "title" ...
+score = 0
+time_left = 0.0
+target = pygame.Vector2(WIDTH / 2, HEIGHT / 2)
+target_vel = pygame.Vector2(250, 180)
+TARGET_RADIUS = 30
+
+
+def centered(text, f, y, color=(255, 255, 255)):
+    surface = f.render(text, True, color)
+    screen.blit(surface, surface.get_rect(center=(WIDTH // 2, y)))
+
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif state == "title" and event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+            state, score, time_left = "playing", 0, 15.0
+        elif state == "playing" and event.type == pygame.MOUSEBUTTONDOWN:
+            if target.distance_to(event.pos) <= TARGET_RADIUS:
+                score += 1
+                target_vel *= 1.08  # a bit faster after each hit
+        elif state == "game_over" and event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+            state = "title"
+            target_vel = pygame.Vector2(250, 180)
+
+    if state == "playing":
+        time_left -= dt
+        target += target_vel * dt
+        if not TARGET_RADIUS <= target.x <= WIDTH - TARGET_RADIUS:
+            target_vel.x = -target_vel.x
+            target.x = max(TARGET_RADIUS, min(WIDTH - TARGET_RADIUS, target.x))
+        if not TARGET_RADIUS <= target.y <= HEIGHT - TARGET_RADIUS:
+            target_vel.y = -target_vel.y
+            target.y = max(TARGET_RADIUS, min(HEIGHT - TARGET_RADIUS, target.y))
+        if time_left <= 0:
+            state = "game_over"
+
+    screen.fill((25, 25, 40))
+    if state == "title":
+        centered("TARGET RUSH", big, 220, (255, 200, 80))
+        centered("Click the target as many times as you can", font, 320)
+        centered("Press ENTER to start", font, 380, (180, 180, 200))
+    elif state == "playing":
+        pygame.draw.circle(screen, (230, 70, 70), (round(target.x), round(target.y)), TARGET_RADIUS)
+        pygame.draw.circle(screen, (255, 255, 255), (round(target.x), round(target.y)), TARGET_RADIUS // 2)
+        screen.blit(font.render(f"Score {score}   Time {max(0, time_left):.1f}", True, (255, 255, 255)), (10, 10))
+    elif state == "game_over":
+        centered("TIME'S UP", big, 220)
+        centered(f"You hit the target {score} times", font, 320)
+        centered("Press ENTER for the title screen", font, 380, (180, 180, 200))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+Each event only does something in the right state, which is why every check starts with `state == ...`. When a game grows, a common next step is a class per state, each with its own `handle_event()`, `update()` and `draw()` methods.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I animate a character in pygame by cycling through frames?
+<<<PROMPT>>>
+Make a walking animation in pygame that faces left or right depending on the direction.
+<<<ANSWER>>>
+Keep a list of frames and switch to the next one every fraction of a second. Normally the frames come from image files; here I draw them in code so the example runs as-is:
+
+```python
+import math
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 400
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Walk animation - arrow keys")
+clock = pygame.time.Clock()
+
+
+def make_frames():
+    """Four frames of a little walking figure, drawn facing right."""
+    frames = []
+    for i in range(4):
+        surf = pygame.Surface((48, 64), pygame.SRCALPHA)
+        swing = math.sin(i / 4 * 2 * math.pi) * 12
+        pygame.draw.circle(surf, (250, 210, 160), (24, 12), 10)                      # head
+        pygame.draw.line(surf, (60, 120, 220), (24, 22), (24, 44), 6)                # body
+        pygame.draw.line(surf, (40, 40, 40), (24, 44), (24 + swing, 62), 5)          # leg 1
+        pygame.draw.line(surf, (40, 40, 40), (24, 44), (24 - swing, 62), 5)          # leg 2
+        pygame.draw.line(surf, (60, 120, 220), (24, 28), (24 - swing * 0.8, 40), 4)  # arm
+        pygame.draw.circle(surf, (0, 0, 0), (28, 10), 2)                              # eye (shows which way it faces)
+        frames.append(surf)
+    return frames
+
+
+walk_right = make_frames()
+walk_left = [pygame.transform.flip(f, True, False) for f in walk_right]  # mirror horizontally
+
+x = WIDTH / 2
+facing_right = True
+frame_index = 0
+frame_timer = 0.0
+FRAME_TIME = 0.12  # seconds per frame
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    keys = pygame.key.get_pressed()
+    direction = keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]
+    if direction:
+        x += direction * 200 * dt
+        x = max(24, min(WIDTH - 24, x))
+        facing_right = direction > 0
+        frame_timer += dt
+        if frame_timer >= FRAME_TIME:
+            frame_timer -= FRAME_TIME
+            frame_index = (frame_index + 1) % 4
+    else:
+        frame_index = 0  # standing still
+
+    frames = walk_right if facing_right else walk_left
+    image = frames[frame_index]
+
+    screen.fill((170, 210, 240))
+    pygame.draw.rect(screen, (90, 160, 80), (0, 300, WIDTH, 100))
+    screen.blit(image, image.get_rect(midbottom=(round(x), 300)))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `frame_timer` adds up time, and every `FRAME_TIME` seconds the frame moves on, so the animation speed doesn't depend on the frame rate.
+- `pygame.transform.flip(image, True, False)` mirrors the frames once at the start, which is much cheaper than flipping every frame.
+- To use real art, load each frame with `pygame.image.load(...).convert_alpha()` into the same list.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I make a scrolling camera in pygame for a world that's bigger than the screen?
+<<<ANSWER>>>
+Keep everything in *world* coordinates, then subtract a camera offset when drawing. The camera centers on the player but stops at the edges of the world:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+WORLD_W, WORLD_H = 3000, 2000
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Scrolling camera - WASD or arrows")
+clock = pygame.time.Clock()
+
+random.seed(3)
+trees = [pygame.Vector2(random.randint(0, WORLD_W), random.randint(0, WORLD_H)) for _ in range(250)]
+player = pygame.Vector2(WORLD_W / 2, WORLD_H / 2)
+SPEED = 400
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    keys = pygame.key.get_pressed()
+    move = pygame.Vector2((keys[pygame.K_RIGHT] or keys[pygame.K_d]) - (keys[pygame.K_LEFT] or keys[pygame.K_a]),
+                          (keys[pygame.K_DOWN] or keys[pygame.K_s]) - (keys[pygame.K_UP] or keys[pygame.K_w]))
+    if move.length() > 0:
+        player += move.normalize() * SPEED * dt
+    player.x = max(0, min(WORLD_W, player.x))
+    player.y = max(0, min(WORLD_H, player.y))
+
+    # Camera: top-left corner of the view, kept inside the world
+    camera = player - pygame.Vector2(WIDTH / 2, HEIGHT / 2)
+    camera.x = max(0, min(WORLD_W - WIDTH, camera.x))
+    camera.y = max(0, min(WORLD_H - HEIGHT, camera.y))
+
+    screen.fill((80, 150, 70))
+    view = pygame.Rect(round(camera.x) - 40, round(camera.y) - 40, WIDTH + 80, HEIGHT + 80)
+    for tree in trees:
+        if view.collidepoint(tree.x, tree.y):  # only draw what's near the screen
+            sx, sy = tree - camera
+            pygame.draw.circle(screen, (30, 90, 40), (round(sx), round(sy)), 28)
+    px, py = player - camera
+    pygame.draw.circle(screen, (240, 220, 80), (round(px), round(py)), 16)
+
+    # Minimap in the corner
+    mini = pygame.Rect(WIDTH - 160, 10, 150, 100)
+    pygame.draw.rect(screen, (20, 40, 20), mini)
+    dot = (round(mini.x + player.x / WORLD_W * mini.width), round(mini.y + player.y / WORLD_H * mini.height))
+    pygame.draw.circle(screen, (240, 220, 80), dot, 3)
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `screen position = world position - camera`. That one subtraction is the whole camera.
+- Clamping the camera stops it from showing past the edge of the world, while the player can still walk right up to the edge.
+- Skipping objects outside the view keeps big worlds fast.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I make something happen every second in pygame? Like spawning balloons on a timer.
+<<<PROMPT>>>
+How does pygame.time.set_timer work?
+<<<ANSWER>>>
+`pygame.time.set_timer()` puts your own event into the event queue at a fixed interval. Here balloons spawn every 0.7 seconds and float up; click to pop them. A one-time timer ends the round after 20 seconds:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Balloon Pop")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 40)
+
+SPAWN = pygame.USEREVENT + 1      # your own event types start at USEREVENT
+ROUND_OVER = pygame.USEREVENT + 2
+pygame.time.set_timer(SPAWN, 700)                  # every 700 ms, forever
+pygame.time.set_timer(ROUND_OVER, 20_000, loops=1)  # once, after 20 s
+
+balloons = []  # [x, y, speed, color]
+score = 0
+playing = True
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == SPAWN and playing:
+            color = random.choice([(230, 70, 70), (70, 140, 230), (240, 200, 60), (120, 200, 90)])
+            balloons.append([random.randint(40, WIDTH - 40), HEIGHT + 40, random.uniform(80, 160), color])
+        elif event.type == ROUND_OVER:
+            playing = False
+            pygame.time.set_timer(SPAWN, 0)  # 0 stops a timer
+        elif event.type == pygame.MOUSEBUTTONDOWN and playing:
+            for b in balloons:
+                if (event.pos[0] - b[0]) ** 2 + (event.pos[1] - b[1]) ** 2 <= 30 ** 2:
+                    balloons.remove(b)  # safe here because we stop looping right away
+                    score += 1
+                    break
+
+    for b in balloons:
+        b[1] -= b[2] * dt
+    balloons = [b for b in balloons if b[1] > -40]
+
+    screen.fill((180, 220, 250))
+    for x, y, _, color in balloons:
+        pygame.draw.line(screen, (90, 90, 90), (round(x), round(y) + 30), (round(x), round(y) + 70), 2)
+        pygame.draw.ellipse(screen, color, (round(x) - 25, round(y) - 32, 50, 62))
+    screen.blit(font.render(f"Popped: {score}", True, (30, 30, 30)), (10, 10))
+    if not playing:
+        text = font.render(f"Round over! You popped {score} balloons", True, (30, 30, 30))
+        screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+Notes:
+- Each custom event needs its own number: `pygame.USEREVENT + 1`, `+ 2`, and so on.
+- `loops=1` fires once; leave it out to repeat forever, and set the time to `0` to stop a timer.
+- For timers that need to pause with the game, counting down with `dt` yourself is often simpler.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I drag and drop things with the mouse in pygame?
+<<<ANSWER>>>
+Pick up a shape on mouse down, move it on mouse motion, and drop it on mouse up. Storing the offset between the mouse and the shape's corner stops it from jumping when you grab it:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+pygame.display.set_caption("Drag the boxes")
+clock = pygame.time.Clock()
+
+boxes = [
+    {"rect": pygame.Rect(100, 100, 120, 80), "color": (230, 90, 90)},
+    {"rect": pygame.Rect(300, 250, 100, 100), "color": (90, 160, 230)},
+    {"rect": pygame.Rect(520, 150, 140, 70), "color": (110, 200, 120)},
+]
+dragging = None
+offset = (0, 0)
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Check from the top-most box (drawn last) down
+            for box in reversed(boxes):
+                if box["rect"].collidepoint(event.pos):
+                    dragging = box
+                    offset = (box["rect"].x - event.pos[0], box["rect"].y - event.pos[1])
+                    boxes.remove(box)
+                    boxes.append(box)  # bring it to the front
+                    break
+        elif event.type == pygame.MOUSEMOTION and dragging:
+            dragging["rect"].topleft = (event.pos[0] + offset[0], event.pos[1] + offset[1])
+            dragging["rect"].clamp_ip(screen.get_rect())
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            dragging = None
+
+    screen.fill((35, 35, 45))
+    for box in boxes:
+        pygame.draw.rect(screen, box["color"], box["rect"], border_radius=8)
+        if box is dragging:
+            pygame.draw.rect(screen, (255, 255, 255), box["rect"], 3, border_radius=8)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+Boxes drawn later appear on top, so the click check goes through the list in reverse, and the grabbed box moves to the end of the list to come to the front.
+<<<END>>>
+
+<<<PROMPT>>>
+Add a pause screen to a pygame game: press P to pause and show a dark overlay.
+<<<ANSWER>>>
+When paused, skip the update step but keep drawing. A semi-transparent surface on top darkens the game:
+
+```python
+import math
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Press P to pause")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 72)
+
+overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+overlay.fill((0, 0, 0, 160))  # black at about 60% opacity
+
+angle = 0.0
+paused = False
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+            paused = not paused
+
+    if not paused:
+        angle += 1.5 * dt  # the game only moves when not paused
+
+    screen.fill((20, 30, 50))
+    for i in range(6):
+        a = angle + i * math.pi / 3
+        x = WIDTH / 2 + math.cos(a) * 180
+        y = HEIGHT / 2 + math.sin(a) * 180
+        pygame.draw.circle(screen, (100 + i * 25, 180, 255 - i * 30), (round(x), round(y)), 30)
+
+    if paused:
+        screen.blit(overlay, (0, 0))
+        text = font.render("PAUSED", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+The event loop keeps running while paused, which is what lets P unpause it (and keeps the window responsive). The overlay's fourth color value is alpha (0 is invisible, 255 is solid), which only works on a surface made with `pygame.SRCALPHA`.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I add a screen shake effect in pygame?
+<<<ANSWER>>>
+Draw the game onto a separate surface, then blit that surface to the screen at a small random offset that fades out:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("SPACE to shake")
+clock = pygame.time.Clock()
+world = pygame.Surface((WIDTH, HEIGHT))  # draw the game here first
+font = pygame.font.Font(None, 40)
+
+shake = 0.0  # current strength in pixels
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            shake = 18  # a big hit
+
+    shake = max(0.0, shake - 40 * dt)  # fade out over about half a second
+
+    world.fill((30, 30, 45))
+    pygame.draw.rect(world, (200, 80, 80), (300, 250, 200, 100), border_radius=10)
+    world.blit(font.render("Press SPACE", True, (255, 255, 255)), (320, 180))
+
+    offset = (round(random.uniform(-shake, shake)), round(random.uniform(-shake, shake))) if shake > 0 else (0, 0)
+    screen.fill((0, 0, 0))
+    screen.blit(world, offset)
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+Make the shake stronger for bigger events (an explosion vs. a small hit), and keep it short; a few tenths of a second feels punchy without being annoying.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a spaceship in pygame that rotates with the left and right arrows and thrusts forward with up, like in space with no friction.
+<<<ANSWER>>>
+The ship has an angle, a position and a velocity. Thrust adds to the velocity in the direction the ship faces, so it keeps drifting:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 900, 650
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Space drift - arrows to fly")
+clock = pygame.time.Clock()
+Vec = pygame.Vector2
+
+pos = Vec(WIDTH / 2, HEIGHT / 2)
+vel = Vec(0, 0)
+angle = -90.0           # degrees; -90 points up the screen
+TURN_SPEED = 220        # degrees per second
+THRUST = 300            # pixels per second squared
+SHIP_SHAPE = [Vec(18, 0), Vec(-12, -11), Vec(-6, 0), Vec(-12, 11)]  # pointing right at angle 0
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    keys = pygame.key.get_pressed()
+    angle += (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * TURN_SPEED * dt
+    forward = Vec(1, 0).rotate(angle)  # unit vector the ship is facing
+    thrusting = keys[pygame.K_UP]
+    if thrusting:
+        vel += forward * THRUST * dt
+    if vel.length() > 500:
+        vel.scale_to_length(500)  # speed limit
+    pos += vel * dt
+    pos.x %= WIDTH   # wrap around the edges
+    pos.y %= HEIGHT
+
+    screen.fill((5, 5, 15))
+    points = [pos + p.rotate(angle) for p in SHIP_SHAPE]
+    if thrusting:
+        flame = [pos + Vec(-8, -5).rotate(angle), pos + Vec(-24, 0).rotate(angle), pos + Vec(-8, 5).rotate(angle)]
+        pygame.draw.polygon(screen, (255, 160, 40), flame)
+    pygame.draw.polygon(screen, (220, 230, 255), points, 2)
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `Vec(1, 0).rotate(angle)` turns the angle into a direction. In pygame's screen coordinates, positive angles turn clockwise.
+- The ship's outline is a list of points around (0, 0); rotating each point and adding the position draws it at any angle without an image.
+- `%=` wraps the ship around the screen edges.
+<<<END>>>
+
+<<<PROMPT>>>
+Make several balls in pygame that bounce off each other realistically.
+<<<PROMPT>>>
+How do I do circle collisions in pygame?
+<<<ANSWER>>>
+Two circles touch when the distance between their centers is less than the sum of their radii. For a realistic bounce between equal masses, swap the parts of their velocities that point along the line between them:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Circle collisions")
+clock = pygame.time.Clock()
+Vec = pygame.Vector2
+
+balls = []
+for i in range(8):
+    balls.append({"pos": Vec(random.randint(60, WIDTH - 60), random.randint(60, HEIGHT - 60)),
+                  "vel": Vec(random.uniform(-220, 220), random.uniform(-220, 220)),
+                  "r": 28, "color": (random.randint(90, 255), random.randint(90, 255), random.randint(90, 255))})
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    for b in balls:
+        b["pos"] += b["vel"] * dt
+        if b["pos"].x < b["r"] or b["pos"].x > WIDTH - b["r"]:
+            b["vel"].x *= -1
+            b["pos"].x = max(b["r"], min(WIDTH - b["r"], b["pos"].x))
+        if b["pos"].y < b["r"] or b["pos"].y > HEIGHT - b["r"]:
+            b["vel"].y *= -1
+            b["pos"].y = max(b["r"], min(HEIGHT - b["r"], b["pos"].y))
+
+    # Check every pair once
+    for i in range(len(balls)):
+        for j in range(i + 1, len(balls)):
+            a, b = balls[i], balls[j]
+            delta = b["pos"] - a["pos"]
+            dist = delta.length()
+            if 0 < dist < a["r"] + b["r"]:
+                normal = delta / dist
+                # Push them apart so they don't overlap
+                overlap = a["r"] + b["r"] - dist
+                a["pos"] -= normal * overlap / 2
+                b["pos"] += normal * overlap / 2
+                # Swap the velocity parts along the normal, only if they move toward each other
+                approach = (a["vel"] - b["vel"]).dot(normal)
+                if approach > 0:
+                    a["vel"] -= normal * approach
+                    b["vel"] += normal * approach
+
+    screen.fill((20, 22, 30))
+    for b in balls:
+        pygame.draw.circle(screen, b["color"], (round(b["pos"].x), round(b["pos"].y)), b["r"])
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `normal` is the unit vector from one center to the other; the bounce only changes motion along that line.
+- Pushing the balls apart first stops them from sticking together.
+- Checking `approach > 0` skips pairs that are already moving apart, which prevents double bounces.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I play sound effects and music in pygame?
+<<<ANSWER>>>
+Use `pygame.mixer.Sound` for short effects and `pygame.mixer.music` for background music. Sound can fail (no speakers, missing file), so this version keeps running without it:
+
+```python
+import os
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+pygame.display.set_caption("SPACE plays a sound, M toggles music")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 32)
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def load_sound(name):
+    try:
+        return pygame.mixer.Sound(os.path.join(HERE, name))
+    except (pygame.error, FileNotFoundError):
+        return None  # no audio device, or the file is missing
+
+
+jump = load_sound("jump.wav")
+if jump:
+    jump.set_volume(0.5)
+
+music_on = False
+status = "Sound loaded" if jump else "jump.wav not found - running without sound"
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE and jump:
+                jump.play()
+            elif event.key == pygame.K_m:
+                try:
+                    if music_on:
+                        pygame.mixer.music.stop()
+                    else:
+                        pygame.mixer.music.load(os.path.join(HERE, "music.ogg"))
+                        pygame.mixer.music.play(-1)  # -1 loops forever
+                    music_on = not music_on
+                except pygame.error:
+                    status = "music.ogg not found"
+
+    screen.fill((25, 25, 35))
+    screen.blit(font.render(status, True, (255, 255, 255)), (20, 20))
+    screen.blit(font.render(f"Music: {'on' if music_on else 'off'}", True, (200, 200, 220)), (20, 60))
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+Put `jump.wav` and `music.ogg` next to the script. WAV and OGG work everywhere; MP3 works for music in pygame 2 too. A `Sound` can play many times at once, but there's only one music track at a time.
+<<<END>>>
+
+<<<PROMPT>>>
+What's the difference between pygame.display.flip() and pygame.display.update()?
+<<<CHECK none>>>
+<<<ANSWER>>>
+- `pygame.display.flip()` shows the whole screen.
+- `pygame.display.update()` with no arguments does exactly the same.
+- `pygame.display.update(rect)` or `update([rect1, rect2])` only refreshes those areas, which can be faster if just a small part of the screen changed.
+
+For most games, call `flip()` once at the end of each frame. Updating only parts of the screen is an optimization, and it's easy to get wrong: anything outside those rectangles keeps showing the old frame.
+
+```python
+dirty = [player_rect.inflate(10, 10), score_rect]
+pygame.display.update(dirty)  # only these two areas get redrawn on screen
+```
+<<<END>>>
+
+<<<PROMPT>>>
+How do I turn my pygame game into an .exe so my friends can play it without Python?
+<<<CHECK none>>>
+<<<ANSWER>>>
+The usual tool is PyInstaller. In a terminal in your game's folder:
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile --windowed game.py
+```
+
+Your `.exe` appears in the `dist` folder. `--onefile` packs everything into one file and `--windowed` hides the black console window.
+
+If your game loads images or sounds:
+- add them with `--add-data "images;images"` (Windows uses `;` between the source and destination),
+- and load files relative to the game, not the current folder. A one-file exe unpacks itself to a temporary folder, so use this:
+
+```python
+import os
+import sys
+
+BASE = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+player = pygame.image.load(os.path.join(BASE, "images", "player.png"))
+```
+
+Antivirus programs sometimes flag new unsigned `.exe` files, so warn your friends that it might happen.
+<<<END>>>

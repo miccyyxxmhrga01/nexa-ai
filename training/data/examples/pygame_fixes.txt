@@ -1,0 +1,864 @@
+<<<PROMPT>>>
+My pygame window says "Not Responding" and I can't close it. Here's my code:
+
+```python
+import pygame
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+x = 0
+while True:
+    screen.fill((0, 0, 0))
+    pygame.draw.circle(screen, (255, 0, 0), (x, 240), 20)
+    x = (x + 1) % 640
+    pygame.display.flip()
+```
+<<<PROMPT>>>
+why does my pygame window freeze and say not responding? the ball moves but i cant close the window
+<<<ANSWER>>>
+Your loop never reads events. Windows marks a window "Not Responding" when nobody handles its events, and the close button sends a `QUIT` event that nothing listens for. Add an event loop:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+x = 0
+
+running = True
+while running:
+    for event in pygame.event.get():  # handle events every frame
+        if event.type == pygame.QUIT:
+            running = False
+
+    screen.fill((0, 0, 0))
+    pygame.draw.circle(screen, (255, 0, 0), (x, 240), 20)
+    x = (x + 2) % 640
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+What changed:
+- `pygame.event.get()` runs once per frame, and a `QUIT` event ends the loop.
+- `while running:` instead of `while True:` lets the program reach `pygame.quit()` and close cleanly.
+- `clock.tick(60)` keeps the speed steady (your version ran as fast as the CPU could go).
+<<<END>>>
+
+<<<PROMPT>>>
+My pygame window just stays black, nothing I draw shows up.
+
+import pygame
+pygame.init()
+screen = pygame.display.set_mode((600, 400))
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    screen.fill((255, 255, 255))
+    pygame.draw.rect(screen, (0, 0, 255), (100, 100, 150, 80))
+pygame.quit()
+<<<ANSWER>>>
+You draw everything but never show it. pygame draws on a hidden buffer, and `pygame.display.flip()` is what puts it on the screen. Call it at the end of each frame:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((600, 400))
+clock = pygame.time.Clock()
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    screen.fill((255, 255, 255))
+    pygame.draw.rect(screen, (0, 0, 255), (100, 100, 150, 80))
+    pygame.display.flip()  # show the frame
+    clock.tick(60)
+
+pygame.quit()
+```
+
+`pygame.display.update()` works too; with no arguments it does the same as `flip()`.
+<<<END>>>
+
+<<<PROMPT>>>
+When my circle moves in pygame it leaves a long smeared trail behind it. How do I fix that?
+
+```python
+import pygame
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+x = 50
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    x += 3
+    pygame.draw.circle(screen, (0, 200, 255), (x, 300), 30)
+    pygame.display.flip()
+    clock.tick(60)
+pygame.quit()
+```
+<<<ANSWER>>>
+The old frames are never erased, so every circle you drew is still there. Clear the screen with `screen.fill()` at the start of each frame's drawing:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+x = 50
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    x += 3
+    if x > 830:
+        x = -30  # wrap around so it keeps going
+
+    screen.fill((0, 0, 0))  # erase the last frame
+    pygame.draw.circle(screen, (0, 200, 255), (x, 300), 30)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+Always draw in this order each frame: fill the background, draw everything, then `flip()`.
+<<<END>>>
+
+<<<PROMPT>>>
+My pygame game runs way too fast on my PC and slow on my friend's laptop. How do I make it the same speed everywhere?
+<<<PROMPT>>>
+the player in my pygame game moves super fast, how do i slow it down properly
+<<<ANSWER>>>
+Two things: cap the frame rate with a `Clock`, and move by speed × time instead of a fixed number of pixels per frame. Then the speed is the same no matter how fast the PC is:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+x = 100.0
+SPEED = 200  # pixels per SECOND, not per frame
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000  # caps at 60 FPS and returns the seconds since last frame
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_RIGHT]:
+        x += SPEED * dt
+    if keys[pygame.K_LEFT]:
+        x -= SPEED * dt
+    x = max(20, min(WIDTH - 20, x))
+
+    screen.fill((25, 25, 35))
+    pygame.draw.circle(screen, (250, 200, 60), (round(x), HEIGHT // 2), 20)
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `clock.tick(60)` waits so the loop runs at most 60 times a second.
+- It also returns how many milliseconds the last frame took; dividing by 1000 gives seconds (`dt`).
+- `SPEED * dt` means 200 pixels every second whether the game runs at 30 or 144 FPS. To slow the player down, just lower `SPEED`.
+<<<END>>>
+
+<<<PROMPT>>>
+I get "pygame.error: display Surface quit" when I close my game window. What's wrong?
+
+import pygame
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+    screen.fill((0, 0, 0))
+    pygame.display.flip()
+<<<ANSWER>>>
+`pygame.quit()` shuts pygame down, but your loop keeps going and calls `screen.fill()` on a window that no longer exists. Stop the loop instead, and call `pygame.quit()` once after it:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False  # just end the loop here
+
+    screen.fill((0, 0, 0))
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()  # clean up after the loop
+```
+
+If you want to quit from deep inside your code, `pygame.quit()` followed right away by `sys.exit()` also works, because then nothing else runs after it.
+<<<END>>>
+
+<<<PROMPT>>>
+I'm drawing a grid in pygame and get TypeError: 'float' object cannot be interpreted as an integer
+
+```python
+import pygame
+pygame.init()
+WIDTH, HEIGHT = 640, 480
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    for i in range(WIDTH / 40):
+        pygame.draw.line(screen, (255, 255, 255), (i * 40, 0), (i * 40, HEIGHT))
+    pygame.display.flip()
+pygame.quit()
+```
+<<<ANSWER>>>
+In Python 3, `/` always gives a float (`640 / 40` is `16.0`), and `range()` only takes whole numbers. Use `//` for integer division:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 640, 480
+CELL = 40
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    screen.fill((20, 20, 30))
+    for i in range(WIDTH // CELL + 1):   # vertical lines
+        pygame.draw.line(screen, (90, 90, 110), (i * CELL, 0), (i * CELL, HEIGHT))
+    for j in range(HEIGHT // CELL + 1):  # horizontal lines
+        pygame.draw.line(screen, (90, 90, 110), (0, j * CELL), (WIDTH, j * CELL))
+    pygame.display.flip()
+    clock.tick(30)
+
+pygame.quit()
+```
+
+I also added the horizontal lines, a `screen.fill()` so the grid is drawn on a clean background, and a clock. The same error shows up anywhere pygame or Python needs an integer, like a line `width`; use `//` or `int()` there too.
+<<<END>>>
+
+<<<PROMPT>>>
+In my pygame game the player only moves one tiny step each time I press the arrow key, I have to keep tapping it. I want it to keep moving while I hold the key.
+
+for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+        running = False
+    if event.type == pygame.KEYDOWN:
+        if event.key == pygame.K_LEFT:
+            player_x -= 5
+        if event.key == pygame.K_RIGHT:
+            player_x += 5
+<<<ANSWER>>>
+A `KEYDOWN` event happens once per press, so your code moves 5 pixels per tap. For movement while a key is held, check `pygame.key.get_pressed()` every frame, outside the event loop:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+player_x = WIDTH / 2
+SPEED = 300  # pixels per second
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        # KEYDOWN is still the right choice for one-time actions, like jumping or shooting
+
+    keys = pygame.key.get_pressed()  # which keys are held right now
+    if keys[pygame.K_LEFT]:
+        player_x -= SPEED * dt
+    if keys[pygame.K_RIGHT]:
+        player_x += SPEED * dt
+    player_x = max(25, min(WIDTH - 25, player_x))
+
+    screen.fill((30, 30, 45))
+    pygame.draw.rect(screen, (90, 200, 250), (round(player_x) - 25, HEIGHT - 80, 50, 50))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+Rule of thumb: use events for things that happen once (a press, a click) and `get_pressed()` for things that last (holding a key).
+<<<END>>>
+
+<<<PROMPT>>>
+My collision check in pygame never works. The player goes right through the coin and nothing happens.
+
+```python
+import pygame
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+x, y = 100, 300
+player_rect = pygame.Rect(x, y, 40, 40)
+coin_rect = pygame.Rect(500, 300, 20, 20)
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_RIGHT]:
+        x += 5
+    if player_rect.colliderect(coin_rect):
+        print("got the coin!")
+    screen.fill((0, 0, 0))
+    pygame.draw.rect(screen, (0, 255, 0), (x, y, 40, 40))
+    pygame.draw.rect(screen, (255, 215, 0), coin_rect)
+    pygame.display.flip()
+    clock.tick(60)
+pygame.quit()
+```
+<<<ANSWER>>>
+You move `x`, but `player_rect` was made once at the start and never moves, so it stays at (100, 300) forever and never touches the coin. The fix is to move the rect itself (or update it from `x` and `y` every frame):
+
+```python
+import random
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 36)
+
+player_rect = pygame.Rect(100, 300, 40, 40)
+coin_rect = pygame.Rect(500, 300, 20, 20)
+score = 0
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    keys = pygame.key.get_pressed()
+    player_rect.x += (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * 5
+    player_rect.y += (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * 5
+    player_rect.clamp_ip(screen.get_rect())
+
+    if player_rect.colliderect(coin_rect):
+        score += 1
+        coin_rect.topleft = (random.randint(0, 780), random.randint(0, 580))  # move the coin
+
+    screen.fill((0, 0, 0))
+    pygame.draw.rect(screen, (0, 255, 0), player_rect)
+    pygame.draw.rect(screen, (255, 215, 0), coin_rect)
+    screen.blit(font.render(f"Coins: {score}", True, (255, 255, 255)), (10, 10))
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+Now the rectangle you draw and the one you test are the same object, so they can't get out of sync. I also made the coin jump somewhere new when you grab it, with a counter on screen.
+<<<END>>>
+
+<<<PROMPT>>>
+I get AttributeError: 'Player' object has no attribute '_Sprite__g' when I add my sprite to a group. Code:
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        self.image = pygame.Surface((40, 40))
+        self.rect = self.image.get_rect()
+
+players = pygame.sprite.Group()
+players.add(Player())
+<<<ANSWER>>>
+Your `__init__` doesn't call the parent class's `__init__`, so the sprite never sets up the internal data groups need. Add `super().__init__()` as the first line:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()  # this line was missing
+        self.image = pygame.Surface((40, 40))
+        self.image.fill((80, 180, 255))
+        self.rect = self.image.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+
+    def update(self):
+        keys = pygame.key.get_pressed()
+        self.rect.x += (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * 5
+        self.rect.y += (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * 5
+        self.rect.clamp_ip(screen.get_rect())
+
+
+players = pygame.sprite.Group()
+players.add(Player())
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    players.update()
+    screen.fill((20, 20, 30))
+    players.draw(screen)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+Any class that inherits from `pygame.sprite.Sprite` needs `super().__init__()`, and it needs `self.image` and `self.rect`, because `Group.draw()` uses exactly those two names.
+<<<END>>>
+
+<<<PROMPT>>>
+pygame error: AttributeError: 'Player' object has no attribute 'image' when I call players.draw(screen). My class:
+
+```python
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.surf = pygame.Surface((40, 40))
+        self.rect = self.surf.get_rect()
+```
+<<<ANSWER>>>
+`Group.draw()` looks for attributes named exactly `image` and `rect`. Yours is called `surf`, so the group can't find the picture. Rename it to `self.image`:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, pos):
+        super().__init__()
+        self.image = pygame.Surface((40, 40))  # must be called image
+        self.image.fill((255, 120, 60))
+        self.rect = self.image.get_rect(center=pos)  # must be called rect
+
+
+players = pygame.sprite.Group(Player((200, 240)), Player((440, 240)))
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    screen.fill((25, 25, 35))
+    players.draw(screen)  # blits each sprite's image at its rect
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+The same goes for collisions: `pygame.sprite.spritecollide()` and friends use `rect` too.
+<<<END>>>
+
+<<<PROMPT>>>
+I get "pygame.error: font not initialized" on this line: font = pygame.font.Font(None, 36)
+<<<PROMPT>>>
+why does pygame say font not initialized
+<<<ANSWER>>>
+You're creating the font before `pygame.init()` runs. Fonts need pygame's font module started first, so make your fonts after `pygame.init()`:
+
+```python
+import pygame
+
+pygame.init()  # must come first
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 36)  # now this works
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    screen.fill((10, 10, 20))
+    text = font.render("Fonts work now!", True, (255, 255, 255))
+    screen.blit(text, text.get_rect(center=(320, 240)))
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+Usually that means moving `pygame.init()` to right after the imports, before any other pygame setup.
+<<<END>>>
+
+<<<PROMPT>>>
+FileNotFoundError: No file 'player.png' found in working directory. But the image is in the same folder as my script!
+<<<ANSWER>>>
+pygame looks for files relative to the folder you *ran* Python from (the working directory), not the folder the script is in. If you start the script from somewhere else, like an editor that runs it from your home folder, the image isn't found.
+
+Build the path from the script's own location instead. This version also falls back to a plain square if the file is missing, so the game still runs:
+
+```python
+import os
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+
+HERE = os.path.dirname(os.path.abspath(__file__))  # the folder this script is in
+
+
+def load_image(name, size):
+    try:
+        image = pygame.image.load(os.path.join(HERE, name)).convert_alpha()
+        return pygame.transform.smoothscale(image, size)
+    except (pygame.error, FileNotFoundError):
+        print(f"Couldn't load {name}, using a placeholder")
+        image = pygame.Surface(size, pygame.SRCALPHA)
+        image.fill((255, 0, 255))  # bright pink so you notice it
+        return image
+
+
+player = load_image("player.png", (64, 64))
+player_rect = player.get_rect(center=(400, 300))
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    screen.fill((30, 30, 40))
+    screen.blit(player, player_rect)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+`convert_alpha()` makes the image draw much faster and keeps its transparency; it only works after `set_mode()`.
+<<<END>>>
+
+<<<PROMPT>>>
+TypeError: argument 1 must be pygame.surface.Surface, not str. I'm trying to show text with screen.blit("Score: 5", (10, 10))
+<<<ANSWER>>>
+`blit()` only draws surfaces (images), not strings. Turn the text into a surface first with a font's `render()`:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 40)
+score = 5
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            score += 1
+
+    screen.fill((0, 0, 0))
+    text_surface = font.render(f"Score: {score}", True, (255, 255, 255))  # text -> surface
+    screen.blit(text_surface, (10, 10))  # now blit can draw it
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+You get the same error if you blit a `Rect` or a list; for rectangles use `pygame.draw.rect(screen, color, rect)` instead.
+<<<END>>>
+
+<<<PROMPT>>>
+my pygame code crashes with TypeError: can only concatenate str (not "int") to str on this line:
+text = font.render("Score: " + score, True, (255, 255, 255))
+<<<ANSWER>>>
+`score` is a number, and Python won't add a number to a string. Use an f-string (or `str(score)`):
+
+```python
+text = font.render(f"Score: {score}", True, (255, 255, 255))
+```
+
+Here it is in a full program:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 40)
+score = 0
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            score += 10
+
+    screen.fill((15, 20, 30))
+    text = font.render(f"Score: {score}", True, (255, 255, 255))
+    screen.blit(text, (20, 20))
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+Click anywhere to add 10 points.
+<<<END>>>
+
+<<<PROMPT>>>
+pygame.draw.rect(screen, (255, 0, 0), (10, 10, 50)) gives TypeError: rect argument is invalid
+<<<ANSWER>>>
+A rectangle needs four numbers: `(x, y, width, height)`. Yours has three, so pygame doesn't know the height. For a 50×50 square:
+
+```python
+pygame.draw.rect(screen, (255, 0, 0), (10, 10, 50, 50))
+```
+
+Or use a `pygame.Rect`, which is easier to move and test for collisions later:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+
+box = pygame.Rect(10, 10, 50, 50)  # x, y, width, height
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    box.x = (box.x + 3) % 640
+    screen.fill((0, 0, 0))
+    pygame.draw.rect(screen, (255, 0, 0), box)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+<<<END>>>
+
+<<<PROMPT>>>
+My pygame object won't move when I set a slow speed. With speed 100 it moves fine, but with speed 20 it doesn't move at all!
+
+rect.x += speed * dt
+<<<ANSWER>>>
+`Rect` positions are whole numbers, so fractions get cut off. At 20 pixels per second and 60 FPS, each frame adds about 0.33 pixels, which is dropped to 0 every time. Keep the exact position in a float of your own and copy it into the rect:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+speeds = [20, 60, 150]  # pixels per second
+rects = [pygame.Rect(0, 150 + i * 120, 50, 50) for i in range(3)]
+xs = [0.0, 0.0, 0.0]  # the exact positions, as floats
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    for i in range(3):
+        xs[i] = (xs[i] + speeds[i] * dt) % WIDTH  # move the float
+        rects[i].x = round(xs[i])                 # then update the rect
+
+    screen.fill((20, 20, 30))
+    for rect in rects:
+        pygame.draw.rect(screen, (120, 220, 140), rect)
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+All three squares move now, even the slow one. `pygame.math.Vector2` is handy for this too: store `pos = pygame.Vector2(x, y)`, move it, then set `rect.center = round(pos.x), round(pos.y)`.
+<<<END>>>
+
+<<<PROMPT>>>
+In my shooter game some bullets don't get removed and some disappear too early. I'm removing them like this:
+
+for bullet in bullets:
+    bullet[1] -= 10
+    if bullet[1] < 0:
+        bullets.remove(bullet)
+<<<ANSWER>>>
+Removing items from a list while you loop over it skips the next item, because everything after it shifts down one place. Build a new list of the bullets to keep instead:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+ship = pygame.Rect(WIDTH // 2 - 20, HEIGHT - 60, 40, 30)
+bullets = []  # each bullet is a pygame.Rect
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            bullets.append(pygame.Rect(ship.centerx - 2, ship.top - 10, 4, 10))
+
+    keys = pygame.key.get_pressed()
+    ship.x += (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * 6
+    ship.clamp_ip(screen.get_rect())
+
+    for bullet in bullets:
+        bullet.y -= 10
+    bullets = [b for b in bullets if b.bottom > 0]  # keep only bullets still on screen
+
+    screen.fill((5, 5, 20))
+    pygame.draw.rect(screen, (100, 200, 255), ship)
+    for bullet in bullets:
+        pygame.draw.rect(screen, (255, 230, 80), bullet)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+Press space to shoot. If you'd rather keep `remove()`, loop over a copy: `for bullet in bullets[:]:`.
+<<<END>>>
+
+<<<PROMPT>>>
+When I rotate my image in pygame every frame it gets bigger and blurrier and wobbles around.
+
+image = pygame.transform.rotate(image, 2)
+screen.blit(image, (300, 200))
+<<<ANSWER>>>
+Two problems:
+1. You rotate the already-rotated image again each frame. Every rotation adds padding and blur, so it grows and gets fuzzy. Always rotate the **original** image by the total angle.
+2. A rotated image is a different size, so drawing it at the same top-left corner makes it wobble. Center its rect on a fixed point instead.
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+
+original = pygame.Surface((120, 60), pygame.SRCALPHA)  # stand-in for your image
+original.fill((240, 160, 40))
+pygame.draw.rect(original, (40, 40, 40), (90, 15, 20, 30))  # a mark so you can see it turn
+
+angle = 0
+center = (400, 300)
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    angle = (angle + 2) % 360
+    rotated = pygame.transform.rotate(original, angle)  # rotate the original every time
+    rect = rotated.get_rect(center=center)              # keep the same center
+
+    screen.fill((25, 25, 35))
+    screen.blit(rotated, rect)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+`pygame.transform.rotate()` turns counterclockwise for positive angles.
+<<<END>>>
+
+<<<PROMPT>>>
+ValueError: invalid color argument when I do screen.fill((300, 0, 0))
+<<<ANSWER>>>
+Each part of a color must be from 0 to 255, and 300 is too big. Red at full strength is `(255, 0, 0)`.
+
+If you compute colors (for example from a timer), clamp them so they can't leave that range:
+
+```python
+import math
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+
+
+def clamp(value):
+    return max(0, min(255, int(value)))
+
+
+t = 0.0
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    t += dt
+    red = clamp(128 + 160 * math.sin(t))  # would go past 255 without clamp()
+    screen.fill((red, 30, 60))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+Negative numbers cause the same error, which `clamp()` also prevents.
+<<<END>>>

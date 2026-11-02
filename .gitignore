@@ -1,0 +1,20 @@
+# Python environment (3 GB, rebuilt by setup.ps1)
+.venv/
+__pycache__/
+*.pyc
+
+# Speech and voice models (748 MB, downloaded by `server.py --prefetch` during setup)
+voices/
+
+# Runtime logs (contain account details from API error messages)
+logs/
+*.log
+
+# Built installer and zip (attach these to a GitHub Release instead)
+dist/
+
+# Fine-tuning: downloaded Gemma weights (2 GB, subject to the Gemma Terms of Use),
+# training results and the merged model
+training/models/
+training/out/
+training/tools/

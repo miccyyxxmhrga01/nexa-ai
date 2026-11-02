@@ -1,0 +1,1074 @@
+<<<PROMPT>>>
+Make a brick breaker game in pygame.
+<<<PROMPT>>>
+Write a Breakout-style game in pygame with a paddle, a ball and rows of bricks.
+<<<ANSWER>>>
+Here's a full brick breaker with lives, score and a restart key. Move with the arrow keys:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Brick Breaker")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 36)
+big_font = pygame.font.Font(None, 72)
+
+PADDLE_SPEED = 520
+BALL_SPEED = 380
+ROW_COLORS = [(230, 80, 80), (240, 160, 60), (240, 220, 80), (100, 200, 100), (80, 160, 230)]
+
+
+def make_bricks():
+    return [(pygame.Rect(10 + col * 78, 60 + row * 28, 72, 22), ROW_COLORS[row])
+            for row in range(5) for col in range(10)]
+
+
+def serve():
+    """A new ball in the middle, heading down at a random angle."""
+    pos = pygame.Vector2(WIDTH / 2, HEIGHT / 2)
+    vel = pygame.Vector2(random.uniform(-0.6, 0.6), 1).normalize() * BALL_SPEED
+    return pos, vel
+
+
+paddle = pygame.Rect(WIDTH // 2 - 60, HEIGHT - 40, 120, 14)
+ball = pygame.Rect(0, 0, 16, 16)
+bricks = make_bricks()
+ball_pos, ball_vel = serve()
+score, lives = 0, 3
+state = "playing"  # "playing", "won" or "lost"
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE and state != "playing":
+            bricks = make_bricks()
+            ball_pos, ball_vel = serve()
+            score, lives, state = 0, 3, "playing"
+
+    if state == "playing":
+        keys = pygame.key.get_pressed()
+        paddle.x += round((keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * PADDLE_SPEED * dt)
+        paddle.clamp_ip(screen.get_rect())
+
+        ball_pos += ball_vel * dt
+        ball.center = (round(ball_pos.x), round(ball_pos.y))
+
+        if ball.left <= 0:
+            ball_vel.x = abs(ball_vel.x)
+        if ball.right >= WIDTH:
+            ball_vel.x = -abs(ball_vel.x)
+        if ball.top <= 0:
+            ball_vel.y = abs(ball_vel.y)
+
+        # Paddle: the bounce angle depends on where the ball hits it
+        if ball.colliderect(paddle) and ball_vel.y > 0:
+            offset = (ball.centerx - paddle.centerx) / (paddle.width / 2)  # -1 (left) to 1 (right)
+            ball_vel = pygame.Vector2(offset, -1).normalize() * BALL_SPEED
+
+        hit = ball.collidelist([rect for rect, _ in bricks])
+        if hit != -1:
+            bricks.pop(hit)
+            ball_vel.y = -ball_vel.y
+            score += 10
+            if not bricks:
+                state = "won"
+
+        if ball.top > HEIGHT:  # missed the ball
+            lives -= 1
+            if lives == 0:
+                state = "lost"
+            else:
+                ball_pos, ball_vel = serve()
+
+    screen.fill((15, 15, 25))
+    for rect, color in bricks:
+        pygame.draw.rect(screen, color, rect, border_radius=4)
+    pygame.draw.rect(screen, (220, 220, 230), paddle, border_radius=7)
+    pygame.draw.ellipse(screen, (255, 255, 255), ball)
+    screen.blit(font.render(f"Score: {score}", True, (255, 255, 255)), (10, 15))
+    screen.blit(font.render(f"Lives: {lives}", True, (255, 255, 255)), (WIDTH - 110, 15))
+    if state != "playing":
+        message = "You win!" if state == "won" else "Game over"
+        text = big_font.render(message, True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+        hint = font.render("Press SPACE to play again", True, (180, 180, 200))
+        screen.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60)))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- The ball's exact position is a `Vector2` of floats, and the `Rect` is only used for drawing and collisions, so slow angles still move smoothly.
+- Where the ball lands on the paddle sets the bounce angle: near the edges sends it off sideways, the middle sends it straight up. That gives you control over the ball.
+- `collidelist()` returns the index of the first brick the ball touches, or -1 if none.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a space shooter game in pygame where enemies come down from the top and I shoot them.
+<<<ANSWER>>>
+Arrow keys to move, space to shoot. Enemies speed up as your score grows, and you have 3 lives:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 600, 800
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Space Shooter")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 36)
+
+stars = [(random.randrange(WIDTH), random.randrange(HEIGHT)) for _ in range(80)]
+
+
+def reset():
+    return {"ship": pygame.Rect(WIDTH // 2 - 20, HEIGHT - 80, 40, 40), "bullets": [], "enemies": [],
+            "score": 0, "lives": 3, "cooldown": 0.0, "spawn_timer": 0.0, "over": False}
+
+
+game = reset()
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r and game["over"]:
+            game = reset()
+
+    if not game["over"]:
+        ship = game["ship"]
+        keys = pygame.key.get_pressed()
+        ship.x += round((keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * 400 * dt)
+        ship.clamp_ip(screen.get_rect())
+
+        # Shooting, with a short cooldown so holding space doesn't fire every frame
+        game["cooldown"] -= dt
+        if keys[pygame.K_SPACE] and game["cooldown"] <= 0:
+            game["bullets"].append(pygame.Rect(ship.centerx - 3, ship.top - 12, 6, 14))
+            game["cooldown"] = 0.25
+
+        # New enemies get more frequent and faster with the score
+        game["spawn_timer"] -= dt
+        if game["spawn_timer"] <= 0:
+            game["enemies"].append(pygame.Rect(random.randint(0, WIDTH - 40), -40, 40, 30))
+            game["spawn_timer"] = max(0.35, 1.0 - game["score"] * 0.01)
+        enemy_speed = 120 + game["score"] * 2
+
+        for b in game["bullets"]:
+            b.y -= round(600 * dt)
+        for e in game["enemies"]:
+            e.y += round(enemy_speed * dt)
+
+        # Bullet hits enemy: remove both
+        for b in game["bullets"][:]:
+            hit = b.collidelist(game["enemies"])
+            if hit != -1:
+                game["enemies"].pop(hit)
+                game["bullets"].remove(b)
+                game["score"] += 1
+
+        # Enemy hits the ship or gets past it: lose a life
+        for e in game["enemies"][:]:
+            if e.colliderect(ship) or e.top > HEIGHT:
+                game["enemies"].remove(e)
+                game["lives"] -= 1
+                if game["lives"] == 0:
+                    game["over"] = True
+
+        game["bullets"] = [b for b in game["bullets"] if b.bottom > 0]
+
+    screen.fill((5, 5, 20))
+    for x, y in stars:
+        screen.set_at((x, y), (200, 200, 255))
+    ship = game["ship"]
+    pygame.draw.polygon(screen, (90, 200, 255), [(ship.centerx, ship.top), ship.bottomleft, ship.bottomright])
+    for b in game["bullets"]:
+        pygame.draw.rect(screen, (255, 240, 120), b)
+    for e in game["enemies"]:
+        pygame.draw.rect(screen, (230, 70, 90), e, border_radius=6)
+    screen.blit(font.render(f"Score {game['score']}   Lives {game['lives']}", True, (255, 255, 255)), (10, 10))
+    if game["over"]:
+        text = font.render("GAME OVER - press R to restart", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- Everything about one round lives in the `game` dictionary, so restarting is just `game = reset()`.
+- The cooldown timer counts down with `dt`; a shot is only allowed when it reaches zero.
+- I loop over copies (`[:]`) when removing items, because removing from a list you're looping over skips elements.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a pygame game where you press space to flap and fly through gaps between pipes.
+<<<PROMPT>>>
+Create a flappy-style game in pygame with gravity and moving obstacles.
+<<<ANSWER>>>
+Space or a mouse click makes the bird flap. Get through as many gaps as you can:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 480, 640
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Gap Flyer")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 48)
+small = pygame.font.Font(None, 30)
+
+GRAVITY = 1400      # pixels per second squared
+FLAP = -420         # upward speed after a flap
+PIPE_SPEED = 180
+GAP = 170
+PIPE_WIDTH = 70
+BIRD_X = 120
+RADIUS = 16
+
+
+def reset():
+    return {"y": HEIGHT / 2, "vy": 0.0, "pipes": [], "timer": 0.0, "score": 0, "state": "ready"}
+
+
+def add_pipe(game):
+    gap_top = random.randint(80, HEIGHT - 80 - GAP)
+    game["pipes"].append({"x": float(WIDTH), "gap_top": gap_top, "scored": False})
+
+
+game = reset()
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    flap = False
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE) or event.type == pygame.MOUSEBUTTONDOWN:
+            flap = True
+
+    if game["state"] == "ready" and flap:
+        game["state"] = "playing"
+    elif game["state"] == "over" and flap:
+        game = reset()
+
+    if game["state"] == "playing":
+        if flap:
+            game["vy"] = FLAP
+        game["vy"] += GRAVITY * dt
+        game["y"] += game["vy"] * dt
+
+        game["timer"] -= dt
+        if game["timer"] <= 0:
+            add_pipe(game)
+            game["timer"] = 1.5
+        for p in game["pipes"]:
+            p["x"] -= PIPE_SPEED * dt
+        game["pipes"] = [p for p in game["pipes"] if p["x"] > -PIPE_WIDTH]
+
+        bird = pygame.Rect(BIRD_X - RADIUS, round(game["y"]) - RADIUS, RADIUS * 2, RADIUS * 2)
+        for p in game["pipes"]:
+            top = pygame.Rect(round(p["x"]), 0, PIPE_WIDTH, p["gap_top"])
+            bottom = pygame.Rect(round(p["x"]), p["gap_top"] + GAP, PIPE_WIDTH, HEIGHT)
+            if bird.colliderect(top) or bird.colliderect(bottom):
+                game["state"] = "over"
+            if not p["scored"] and p["x"] + PIPE_WIDTH < BIRD_X:
+                p["scored"] = True
+                game["score"] += 1
+        if game["y"] - RADIUS < 0 or game["y"] + RADIUS > HEIGHT:
+            game["state"] = "over"
+
+    screen.fill((120, 190, 240))
+    for p in game["pipes"]:
+        x = round(p["x"])
+        pygame.draw.rect(screen, (70, 170, 70), (x, 0, PIPE_WIDTH, p["gap_top"]))
+        pygame.draw.rect(screen, (70, 170, 70), (x, p["gap_top"] + GAP, PIPE_WIDTH, HEIGHT))
+    pygame.draw.circle(screen, (250, 210, 50), (BIRD_X, round(game["y"])), RADIUS)
+    pygame.draw.circle(screen, (0, 0, 0), (BIRD_X + 6, round(game["y"]) - 5), 3)  # eye
+
+    score_text = font.render(str(game["score"]), True, (255, 255, 255))
+    screen.blit(score_text, score_text.get_rect(center=(WIDTH // 2, 50)))
+    if game["state"] == "ready":
+        msg = small.render("Press SPACE or click to start", True, (255, 255, 255))
+        screen.blit(msg, msg.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60)))
+    elif game["state"] == "over":
+        msg = small.render("Crashed! SPACE or click to try again", True, (255, 255, 255))
+        screen.blit(msg, msg.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60)))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- Gravity adds to the vertical speed every frame, and a flap sets it straight to an upward value. That's what gives the floaty, bouncy feel.
+- Each pipe is just an x position and where its gap starts; the top and bottom rectangles are built from that when needed.
+- A pipe gives one point the first time it passes the bird, which is what the `scored` flag tracks.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a coin collecting game in pygame with a 30 second timer.
+<<<ANSWER>>>
+Grab as many coins as you can before time runs out. Arrow keys or WASD to move, R to play again:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Coin Rush")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 40)
+big_font = pygame.font.Font(None, 80)
+
+GAME_TIME = 30.0
+SPEED = 320
+
+
+def random_coin():
+    return pygame.Rect(random.randint(20, WIDTH - 40), random.randint(60, HEIGHT - 40), 20, 20)
+
+
+def new_game():
+    return pygame.Rect(WIDTH // 2, HEIGHT // 2, 36, 36), [random_coin() for _ in range(5)], 0, GAME_TIME
+
+
+player, coins, score, time_left = new_game()
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r and time_left <= 0:
+            player, coins, score, time_left = new_game()
+
+    if time_left > 0:
+        time_left = max(0.0, time_left - dt)
+        keys = pygame.key.get_pressed()
+        dx = (keys[pygame.K_RIGHT] or keys[pygame.K_d]) - (keys[pygame.K_LEFT] or keys[pygame.K_a])
+        dy = (keys[pygame.K_DOWN] or keys[pygame.K_s]) - (keys[pygame.K_UP] or keys[pygame.K_w])
+        player.x += round(dx * SPEED * dt)
+        player.y += round(dy * SPEED * dt)
+        player.clamp_ip(screen.get_rect())
+
+        for i, coin in enumerate(coins):
+            if player.colliderect(coin):
+                score += 1
+                coins[i] = random_coin()  # replace it with a new one
+
+    screen.fill((25, 30, 45))
+    for coin in coins:
+        pygame.draw.ellipse(screen, (250, 200, 40), coin)
+        pygame.draw.ellipse(screen, (200, 150, 20), coin, 2)
+    pygame.draw.rect(screen, (90, 210, 140), player, border_radius=8)
+
+    screen.blit(font.render(f"Coins: {score}", True, (255, 255, 255)), (15, 15))
+    timer_color = (255, 90, 90) if time_left < 5 else (255, 255, 255)
+    screen.blit(font.render(f"Time: {time_left:4.1f}", True, timer_color), (WIDTH - 170, 15))
+
+    if time_left <= 0:
+        text = big_font.render(f"Time's up! {score} coins", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+        hint = font.render("Press R to play again", True, (180, 180, 200))
+        screen.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60)))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+The timer counts down by `dt` each frame, so it's accurate even if the frame rate changes, and it turns red for the last 5 seconds.
+<<<END>>>
+
+<<<PROMPT>>>
+Make tic-tac-toe in pygame for two players using the mouse.
+<<<ANSWER>>>
+Players take turns clicking a square. It detects wins and draws; click again after the game ends to restart:
+
+```python
+import pygame
+
+pygame.init()
+SIZE = 600
+CELL = SIZE // 3
+screen = pygame.display.set_mode((SIZE, SIZE + 60))
+pygame.display.set_caption("Tic-Tac-Toe")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 44)
+
+LINES = [(0, 1, 2), (3, 4, 5), (6, 7, 8), (0, 3, 6), (1, 4, 7), (2, 5, 8), (0, 4, 8), (2, 4, 6)]
+
+
+def winner(board):
+    for a, b, c in LINES:
+        if board[a] and board[a] == board[b] == board[c]:
+            return board[a]
+    return "draw" if all(board) else None
+
+
+board = [""] * 9
+turn = "X"
+result = None
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if result:  # game over: any click starts a new game
+                board, turn, result = [""] * 9, "X", None
+            else:
+                x, y = event.pos
+                if y < SIZE:
+                    index = (y // CELL) * 3 + (x // CELL)
+                    if not board[index]:
+                        board[index] = turn
+                        result = winner(board)
+                        turn = "O" if turn == "X" else "X"
+
+    screen.fill((240, 240, 235))
+    for i in (1, 2):
+        pygame.draw.line(screen, (40, 40, 40), (i * CELL, 10), (i * CELL, SIZE - 10), 6)
+        pygame.draw.line(screen, (40, 40, 40), (10, i * CELL), (SIZE - 10, i * CELL), 6)
+
+    for index, mark in enumerate(board):
+        cx = (index % 3) * CELL + CELL // 2
+        cy = (index // 3) * CELL + CELL // 2
+        if mark == "X":
+            d = CELL // 3
+            pygame.draw.line(screen, (210, 60, 60), (cx - d, cy - d), (cx + d, cy + d), 10)
+            pygame.draw.line(screen, (210, 60, 60), (cx + d, cy - d), (cx - d, cy + d), 10)
+        elif mark == "O":
+            pygame.draw.circle(screen, (60, 100, 210), (cx, cy), CELL // 3, 10)
+
+    if result == "draw":
+        status = "It's a draw! Click to play again"
+    elif result:
+        status = f"{result} wins! Click to play again"
+    else:
+        status = f"{turn}'s turn"
+    text = font.render(status, True, (30, 30, 30))
+    screen.blit(text, text.get_rect(center=(SIZE // 2, SIZE + 30)))
+    pygame.display.flip()
+    clock.tick(30)
+
+pygame.quit()
+```
+
+How it works:
+- The board is a list of 9 strings. A click at `(x, y)` maps to square `(y // CELL) * 3 + (x // CELL)`.
+- `LINES` lists the 8 ways to win, and `winner()` checks each one.
+- Nothing needs to move, so the game only redraws 30 times a second.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a memory card matching game in pygame.
+<<<PROMPT>>>
+Write a pygame game where you flip cards to find matching pairs.
+<<<ANSWER>>>
+16 cards, 8 pairs of colors. Click two cards; if they match they stay face up, if not they flip back:
+
+```python
+import random
+import pygame
+
+pygame.init()
+COLS, ROWS = 4, 4
+CARD_W, CARD_H, GAP = 110, 140, 15
+WIDTH = COLS * (CARD_W + GAP) + GAP
+HEIGHT = ROWS * (CARD_H + GAP) + GAP + 50
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Memory")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 36)
+
+COLORS = [(230, 80, 80), (80, 180, 90), (80, 130, 230), (240, 200, 60),
+          (180, 90, 220), (250, 140, 50), (60, 200, 200), (240, 120, 180)]
+
+
+def new_game():
+    values = list(range(8)) * 2
+    random.shuffle(values)
+    cards = []
+    for i, value in enumerate(values):
+        col, row = i % COLS, i // COLS
+        rect = pygame.Rect(GAP + col * (CARD_W + GAP), GAP + 50 + row * (CARD_H + GAP), CARD_W, CARD_H)
+        cards.append({"rect": rect, "value": value, "up": False, "done": False})
+    return cards
+
+
+cards = new_game()
+picked = []       # the cards turned up this turn (at most 2)
+hide_at = 0       # time (ms) to flip a wrong pair back
+moves = 0
+
+running = True
+while running:
+    now = pygame.time.get_ticks()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if all(c["done"] for c in cards):
+                cards, picked, moves = new_game(), [], 0
+            elif len(picked) < 2:
+                for card in cards:
+                    if card["rect"].collidepoint(event.pos) and not card["up"]:
+                        card["up"] = True
+                        picked.append(card)
+                        if len(picked) == 2:
+                            moves += 1
+                            if picked[0]["value"] == picked[1]["value"]:
+                                picked[0]["done"] = picked[1]["done"] = True
+                                picked = []
+                            else:
+                                hide_at = now + 800  # show the wrong pair for 0.8 s
+                        break
+
+    if len(picked) == 2 and now >= hide_at:
+        for card in picked:
+            card["up"] = False
+        picked = []
+
+    screen.fill((30, 35, 50))
+    for card in cards:
+        if card["up"]:
+            pygame.draw.rect(screen, (245, 245, 245), card["rect"], border_radius=10)
+            pygame.draw.circle(screen, COLORS[card["value"]], card["rect"].center, 35)
+        else:
+            pygame.draw.rect(screen, (70, 90, 140), card["rect"], border_radius=10)
+            pygame.draw.rect(screen, (110, 130, 190), card["rect"], 4, border_radius=10)
+
+    if all(c["done"] for c in cards):
+        status = f"You found them all in {moves} moves! Click to play again"
+    else:
+        status = f"Moves: {moves}"
+    screen.blit(font.render(status, True, (255, 255, 255)), (GAP, 15))
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+How it works:
+- `list(range(8)) * 2` makes two of each value, and `random.shuffle()` mixes them.
+- A wrong pair stays visible until `hide_at`, a time from `pygame.time.get_ticks()`. Using a timer instead of `time.sleep()` keeps the window responsive.
+- Clicks are ignored while two cards are showing, so you can't flip a third.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a whack-a-mole game in pygame.
+<<<ANSWER>>>
+A mole pops up in one of nine holes; click it before it hides. You have 30 seconds:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 600, 660
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Whack-a-Mole")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 40)
+
+HOLES = [(100 + col * 200, 160 + row * 180) for row in range(3) for col in range(3)]
+MOLE_RADIUS = 45
+GAME_MS = 30_000
+
+
+def new_game(now):
+    return {"score": 0, "misses": 0, "mole": random.randrange(9), "mole_until": now + 900, "end": now + GAME_MS}
+
+
+game = new_game(pygame.time.get_ticks())
+
+running = True
+while running:
+    now = pygame.time.get_ticks()
+    over = now >= game["end"]
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if over:
+                game = new_game(now)
+            elif game["mole"] is not None:
+                mx, my = HOLES[game["mole"]]
+                if (event.pos[0] - mx) ** 2 + (event.pos[1] - my) ** 2 <= MOLE_RADIUS ** 2:
+                    game["score"] += 1
+                    game["mole"] = None            # hide it right away
+                    game["mole_until"] = now + 300  # short pause before the next one
+                else:
+                    game["misses"] += 1
+
+    if not over and now >= game["mole_until"]:
+        if game["mole"] is None:
+            game["mole"] = random.randrange(9)
+            game["mole_until"] = now + random.randint(600, 1100)
+        else:
+            game["mole"] = None  # it got away
+            game["mole_until"] = now + 300
+
+    screen.fill((110, 180, 80))
+    for i, (x, y) in enumerate(HOLES):
+        pygame.draw.ellipse(screen, (60, 40, 25), (x - 60, y + 10, 120, 50))
+        if i == game["mole"] and not over:
+            pygame.draw.circle(screen, (140, 90, 50), (x, y), MOLE_RADIUS)
+            pygame.draw.circle(screen, (0, 0, 0), (x - 15, y - 10), 6)
+            pygame.draw.circle(screen, (0, 0, 0), (x + 15, y - 10), 6)
+            pygame.draw.circle(screen, (240, 120, 140), (x, y + 8), 9)
+
+    seconds = max(0, (game["end"] - now) // 1000)
+    screen.blit(font.render(f"Score {game['score']}   Misses {game['misses']}   Time {seconds}", True, (255, 255, 255)), (20, 20))
+    if over:
+        text = font.render(f"Time's up! Score: {game['score']}. Click to play again", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT - 30)))
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+The click test checks whether the mouse is inside the mole's circle: the squared distance from the center must be at most the radius squared. All the timing uses `pygame.time.get_ticks()` (milliseconds since the start), so nothing blocks the game loop.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a maze game in pygame where I move one tile at a time with the arrow keys to reach the exit.
+<<<PROMPT>>>
+How do I make a tile-based level from a list of strings in pygame?
+<<<ANSWER>>>
+The level is drawn from text: `#` is a wall, `P` is where you start and `E` is the exit. Each key press moves one tile:
+
+```python
+import pygame
+
+LEVEL = [
+    "####################",
+    "#P     #           #",
+    "# #### # ####### # #",
+    "# #    #       # # #",
+    "# # ######## # # # #",
+    "# #          #   # #",
+    "# ######## # ##### #",
+    "#        # #     # #",
+    "######## # ##### # #",
+    "#        #     #   #",
+    "# ############ ### #",
+    "#             #   E#",
+    "####################",
+]
+TILE = 40
+
+pygame.init()
+screen = pygame.display.set_mode((len(LEVEL[0]) * TILE, len(LEVEL) * TILE + 40))
+pygame.display.set_caption("Maze")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 32)
+
+walls = set()
+for row, line in enumerate(LEVEL):
+    for col, ch in enumerate(line):
+        if ch == "#":
+            walls.add((col, row))
+        elif ch == "P":
+            start = (col, row)
+        elif ch == "E":
+            exit_tile = (col, row)
+
+player = start
+steps = 0
+won = False
+MOVES = {pygame.K_LEFT: (-1, 0), pygame.K_RIGHT: (1, 0), pygame.K_UP: (0, -1), pygame.K_DOWN: (0, 1)}
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if won and event.key == pygame.K_SPACE:
+                player, steps, won = start, 0, False
+            elif not won and event.key in MOVES:
+                dx, dy = MOVES[event.key]
+                target = (player[0] + dx, player[1] + dy)
+                if target not in walls:  # only move into open tiles
+                    player = target
+                    steps += 1
+                    won = player == exit_tile
+
+    screen.fill((235, 230, 215))
+    for col, row in walls:
+        pygame.draw.rect(screen, (60, 60, 80), (col * TILE, row * TILE, TILE, TILE))
+    pygame.draw.rect(screen, (80, 200, 120), (exit_tile[0] * TILE + 4, exit_tile[1] * TILE + 4, TILE - 8, TILE - 8))
+    pygame.draw.circle(screen, (230, 80, 60), (player[0] * TILE + TILE // 2, player[1] * TILE + TILE // 2), TILE // 2 - 6)
+
+    msg = f"You escaped in {steps} steps! SPACE to restart" if won else f"Steps: {steps}"
+    screen.blit(font.render(msg, True, (30, 30, 30)), (10, len(LEVEL) * TILE + 8))
+    pygame.display.flip()
+    clock.tick(30)
+
+pygame.quit()
+```
+
+How it works:
+- The player's position is a tile `(column, row)`, not pixels; it's multiplied by `TILE` only when drawing.
+- Walls are kept in a `set`, so checking `target not in walls` is instant even for big levels.
+- Moving on `KEYDOWN` gives exactly one step per press, which suits grid games better than smooth movement.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a top-down shooter in pygame where I move with WASD and aim and shoot with the mouse.
+<<<ANSWER>>>
+WASD moves, the gun points at the mouse, and clicking shoots. Enemies come in from the edges and chase you:
+
+```python
+import math
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 900, 650
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Top-down Shooter")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 34)
+Vec = pygame.Vector2
+
+
+def spawn_enemy():
+    side = random.choice(["left", "right", "top", "bottom"])
+    if side == "left":
+        return Vec(-20, random.uniform(0, HEIGHT))
+    if side == "right":
+        return Vec(WIDTH + 20, random.uniform(0, HEIGHT))
+    if side == "top":
+        return Vec(random.uniform(0, WIDTH), -20)
+    return Vec(random.uniform(0, WIDTH), HEIGHT + 20)
+
+
+player = Vec(WIDTH / 2, HEIGHT / 2)
+bullets = []   # each is [position, velocity]
+enemies = []
+spawn_timer = 0.0
+score = 0
+alive = True
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    aim = Vec(pygame.mouse.get_pos()) - player
+    direction = aim.normalize() if aim.length() > 0 else Vec(1, 0)
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if alive:
+                bullets.append([player + direction * 25, direction * 700])
+            else:  # click to restart
+                player, bullets, enemies, score, alive = Vec(WIDTH / 2, HEIGHT / 2), [], [], 0, True
+
+    if alive:
+        keys = pygame.key.get_pressed()
+        move = Vec(keys[pygame.K_d] - keys[pygame.K_a], keys[pygame.K_s] - keys[pygame.K_w])
+        if move.length() > 0:
+            player += move.normalize() * 280 * dt  # normalize so diagonals aren't faster
+        player.x = max(15, min(WIDTH - 15, player.x))
+        player.y = max(15, min(HEIGHT - 15, player.y))
+
+        spawn_timer -= dt
+        if spawn_timer <= 0:
+            enemies.append(spawn_enemy())
+            spawn_timer = max(0.3, 1.2 - score * 0.02)
+
+        for b in bullets:
+            b[0] += b[1] * dt
+        bullets = [b for b in bullets if 0 <= b[0].x <= WIDTH and 0 <= b[0].y <= HEIGHT]
+
+        for i, e in enumerate(enemies):
+            to_player = player - e
+            if to_player.length() > 0:
+                enemies[i] = e + to_player.normalize() * (90 + score * 2) * dt
+
+        # Bullet hits: anything within 16 pixels of an enemy's center
+        survivors = []
+        for e in enemies:
+            hit = next((b for b in bullets if b[0].distance_to(e) < 16), None)
+            if hit:
+                bullets.remove(hit)
+                score += 1
+            else:
+                survivors.append(e)
+        enemies = survivors
+
+        if any(e.distance_to(player) < 26 for e in enemies):
+            alive = False
+
+    screen.fill((28, 32, 40))
+    for e in enemies:
+        pygame.draw.circle(screen, (220, 70, 80), (round(e.x), round(e.y)), 13)
+    for b in bullets:
+        pygame.draw.circle(screen, (255, 230, 120), (round(b[0].x), round(b[0].y)), 4)
+    pygame.draw.circle(screen, (90, 190, 255), (round(player.x), round(player.y)), 15)
+    gun_tip = player + direction * 28
+    pygame.draw.line(screen, (230, 230, 230), player, gun_tip, 6)
+    angle = math.degrees(math.atan2(-aim.y, aim.x)) % 360
+    screen.blit(font.render(f"Score {score}   Aim {angle:.0f} degrees", True, (255, 255, 255)), (12, 12))
+    if not alive:
+        text = font.render("You got caught! Click to play again", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `mouse position - player` is the vector toward the mouse; `.normalize()` makes it length 1, so it can aim the gun and give bullets a speed.
+- `move.normalize()` stops diagonal movement from being about 1.4 times faster than straight movement.
+- `math.atan2(-y, x)` turns the aim vector into an angle (the minus sign is because screen y grows downward), which you'd use with `pygame.transform.rotate()` to turn a player image.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a reaction time test in pygame: the screen turns green after a random delay and I click as fast as I can.
+<<<ANSWER>>>
+Wait for green, then click. Clicking too early counts as a false start:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 500
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Reaction Time")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 56)
+small = pygame.font.Font(None, 32)
+
+state = "start"      # start -> waiting -> go -> result (or early)
+go_time = 0
+result_ms = 0
+best = None
+
+running = True
+while running:
+    now = pygame.time.get_ticks()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE):
+            if state in ("start", "result", "early"):
+                state = "waiting"
+                go_time = now + random.randint(1500, 4000)  # random delay so you can't guess
+            elif state == "waiting":
+                state = "early"
+            elif state == "go":
+                result_ms = now - go_time
+                best = result_ms if best is None else min(best, result_ms)
+                state = "result"
+
+    if state == "waiting" and now >= go_time:
+        state = "go"
+
+    colors = {"start": (50, 60, 90), "waiting": (190, 50, 50), "go": (40, 180, 80),
+              "result": (50, 60, 90), "early": (200, 130, 30)}
+    messages = {"start": "Click to start", "waiting": "Wait for green...", "go": "CLICK!",
+                "result": f"{result_ms} ms", "early": "Too soon!"}
+    screen.fill(colors[state])
+    text = font.render(messages[state], True, (255, 255, 255))
+    screen.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
+    if state in ("result", "early"):
+        hint = small.render("Click to try again", True, (220, 220, 230))
+        screen.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 60)))
+    if best is not None:
+        screen.blit(small.render(f"Best: {best} ms", True, (255, 255, 255)), (20, 20))
+    pygame.display.flip()
+    clock.tick(240)  # a high frame rate makes the measurement more precise
+
+pygame.quit()
+```
+
+The game is a small state machine: each state has its own color and message, and a click does something different in each one. Typical reaction times are around 200 to 300 ms.
+<<<END>>>
+
+<<<PROMPT>>>
+Make Conway's Game of Life in pygame.
+<<<PROMPT>>>
+Write a cellular automaton in pygame where I can draw cells with the mouse.
+<<<ANSWER>>>
+Space pauses or resumes, clicking or dragging draws cells, R fills the grid randomly and C clears it:
+
+```python
+import random
+import pygame
+
+pygame.init()
+CELL = 10
+COLS, ROWS = 80, 60
+screen = pygame.display.set_mode((COLS * CELL, ROWS * CELL))
+pygame.display.set_caption("Game of Life - SPACE pause, R random, C clear, mouse draws")
+clock = pygame.time.Clock()
+
+
+def random_grid():
+    return [[random.random() < 0.25 for _ in range(COLS)] for _ in range(ROWS)]
+
+
+def step(grid):
+    new = [[False] * COLS for _ in range(ROWS)]
+    for y in range(ROWS):
+        for x in range(COLS):
+            neighbors = 0
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    if (dx or dy) and grid[(y + dy) % ROWS][(x + dx) % COLS]:
+                        neighbors += 1
+            # Live cells survive with 2 or 3 neighbors; dead cells come alive with exactly 3
+            new[y][x] = neighbors == 3 or (grid[y][x] and neighbors == 2)
+    return new
+
+
+grid = random_grid()
+paused = False
+timer = 0.0
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                paused = not paused
+            elif event.key == pygame.K_r:
+                grid = random_grid()
+            elif event.key == pygame.K_c:
+                grid = [[False] * COLS for _ in range(ROWS)]
+
+    if pygame.mouse.get_pressed()[0]:  # draw while the left button is held
+        mx, my = pygame.mouse.get_pos()
+        if 0 <= mx < COLS * CELL and 0 <= my < ROWS * CELL:
+            grid[my // CELL][mx // CELL] = True
+
+    timer += dt
+    if not paused and timer >= 0.1:  # 10 generations per second
+        grid = step(grid)
+        timer = 0.0
+
+    screen.fill((15, 15, 20))
+    for y in range(ROWS):
+        for x in range(COLS):
+            if grid[y][x]:
+                pygame.draw.rect(screen, (120, 230, 160), (x * CELL, y * CELL, CELL - 1, CELL - 1))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `step()` builds a whole new grid from the old one. Updating cells in place would mix this generation with the next.
+- `% ROWS` and `% COLS` wrap the edges around, so the grid behaves like the surface of a donut and patterns can fly off one side and come back on the other.
+- The simulation runs 10 generations a second while the screen still redraws at 60 FPS, which keeps mouse drawing smooth.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a simple clicker game in pygame with an upgrade you can buy.
+<<<ANSWER>>>
+Click the big coin to earn money, then spend it on upgrades: more coins per click, or a helper that clicks for you every second:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Coin Clicker")
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 40)
+small = pygame.font.Font(None, 28)
+
+coins = 0.0
+per_click = 1
+helpers = 0
+click_cost = 10
+helper_cost = 25
+
+coin_center = (250, 320)
+coin_radius = 120
+click_button = pygame.Rect(500, 220, 260, 70)
+helper_button = pygame.Rect(500, 330, 260, 70)
+pulse = 0.0  # makes the coin shrink a little when clicked
+
+
+def draw_button(rect, label, cost, affordable):
+    hovered = rect.collidepoint(pygame.mouse.get_pos())
+    if not affordable:
+        color = (80, 80, 90)
+    elif hovered:
+        color = (90, 170, 110)
+    else:
+        color = (60, 140, 85)
+    pygame.draw.rect(screen, color, rect, border_radius=12)
+    screen.blit(small.render(label, True, (255, 255, 255)), (rect.x + 15, rect.y + 12))
+    screen.blit(small.render(f"Cost: {cost}", True, (230, 230, 230)), (rect.x + 15, rect.y + 40))
+
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            dx, dy = event.pos[0] - coin_center[0], event.pos[1] - coin_center[1]
+            if dx * dx + dy * dy <= coin_radius ** 2:
+                coins += per_click
+                pulse = 0.1
+            elif click_button.collidepoint(event.pos) and coins >= click_cost:
+                coins -= click_cost
+                per_click += 1
+                click_cost = int(click_cost * 1.6)
+            elif helper_button.collidepoint(event.pos) and coins >= helper_cost:
+                coins -= helper_cost
+                helpers += 1
+                helper_cost = int(helper_cost * 1.5)
+
+    coins += helpers * dt  # each helper makes 1 coin per second
+    pulse = max(0.0, pulse - dt)
+
+    screen.fill((35, 30, 50))
+    radius = int(coin_radius * (0.92 if pulse > 0 else 1.0))
+    pygame.draw.circle(screen, (240, 190, 40), coin_center, radius)
+    pygame.draw.circle(screen, (200, 140, 20), coin_center, radius, 8)
+    screen.blit(font.render(f"Coins: {int(coins)}", True, (255, 255, 255)), (40, 40))
+    screen.blit(small.render(f"{per_click} per click   {helpers} per second", True, (200, 200, 220)), (40, 85))
+    draw_button(click_button, "+1 coin per click", click_cost, coins >= click_cost)
+    draw_button(helper_button, "Hire a helper", helper_cost, coins >= helper_cost)
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- Coins are a float so helpers can add a fraction each frame (`helpers * dt`), and the display shows `int(coins)`.
+- Each upgrade gets more expensive after you buy it, which is what keeps a clicker game interesting.
+- Buttons turn lighter when the mouse is over them and gray when you can't afford them.
+<<<END>>>

@@ -1,0 +1,484 @@
+<<<PROMPT>>>
+Make a square bounce around a pygame window.
+<<<ANSWER>>>
+Here's a square that bounces off the edges:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+square = pygame.Rect(100, 100, 50, 50)
+vx, vy = 5, 4
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    square.x += vx
+    square.y += vy
+    if square.left < 0 or square.right > WIDTH:
+        vx = -vx
+    if square.top < 0 or square.bottom > HEIGHT:
+        vy = -vy
+
+    screen.fill((20, 20, 30))
+    pygame.draw.rect(screen, (240, 120, 60), square)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+<<<PROMPT>>>
+Now make it change to a random color every time it hits a wall.
+<<<ANSWER>>>
+Pick a new color inside the bounce checks. I also keep the square inside the window on each bounce so it can't get stuck in a wall:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+square = pygame.Rect(100, 100, 50, 50)
+vx, vy = 5, 4
+color = (240, 120, 60)
+
+
+def random_color():
+    return (random.randint(60, 255), random.randint(60, 255), random.randint(60, 255))
+
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    square.x += vx
+    square.y += vy
+    if square.left < 0 or square.right > WIDTH:
+        vx = -vx
+        square.clamp_ip(screen.get_rect())
+        color = random_color()
+    if square.top < 0 or square.bottom > HEIGHT:
+        vy = -vy
+        square.clamp_ip(screen.get_rect())
+        color = random_color()
+
+    screen.fill((20, 20, 30))
+    pygame.draw.rect(screen, color, square)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+The new parts are `random_color()` and the two `color = random_color()` lines. The color now lives in a variable that `draw.rect` uses every frame.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a VPython ball move in a circle.
+<<<ANSWER>>>
+Set its position from cosine and sine of a growing angle:
+
+```python
+from vpython import *
+
+ball = sphere(pos=vector(3, 0, 0), radius=0.3, color=color.cyan, make_trail=True)
+angle = 0
+while True:
+    rate(60)
+    angle += 0.02
+    ball.pos = vector(3 * cos(angle), 3 * sin(angle), 0)
+```
+<<<PROMPT>>>
+Can you add a graph of its x position over time?
+<<<ANSWER>>>
+Add a `graph` with a `gcurve` and plot `ball.pos.x` against time each step:
+
+```python
+from vpython import *
+
+ball = sphere(pos=vector(3, 0, 0), radius=0.3, color=color.cyan, make_trail=True)
+
+plot = graph(title="x position", xtitle="t (s)", ytitle="x", height=250)
+x_curve = gcurve(graph=plot, color=color.blue)
+
+angle = 0
+t = 0
+dt = 1 / 60
+while True:
+    rate(60)
+    angle += 0.02
+    t += dt
+    ball.pos = vector(3 * cos(angle), 3 * sin(angle), 0)
+    x_curve.plot(t, ball.pos.x)
+```
+
+The graph draws a cosine wave: circular motion seen from the side is simple harmonic motion. Add a second `gcurve` with `ball.pos.y` to see the sine wave next to it.
+<<<END>>>
+
+<<<PROMPT>>>
+Add a score and 3 lives to my pygame game. If an enemy touches the player you lose a life, and catching a star gives a point.
+
+```python
+import random
+import pygame
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+player = pygame.Rect(400, 500, 40, 40)
+enemy = pygame.Rect(random.randint(0, 760), 0, 40, 40)
+star = pygame.Rect(random.randint(0, 780), 0, 20, 20)
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    keys = pygame.key.get_pressed()
+    player.x += (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * 6
+    enemy.y += 5
+    star.y += 3
+    if enemy.top > 600:
+        enemy.topleft = (random.randint(0, 760), -40)
+    if star.top > 600:
+        star.topleft = (random.randint(0, 780), -20)
+    screen.fill((0, 0, 0))
+    pygame.draw.rect(screen, (0, 200, 255), player)
+    pygame.draw.rect(screen, (255, 60, 60), enemy)
+    pygame.draw.rect(screen, (255, 220, 0), star)
+    pygame.display.flip()
+    clock.tick(60)
+pygame.quit()
+```
+<<<ANSWER>>>
+I added a font, `score` and `lives` variables, the two collision checks, a text display, and a game over screen with R to restart:
+
+```python
+import random
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 36)
+
+player = pygame.Rect(400, 500, 40, 40)
+enemy = pygame.Rect(random.randint(0, 760), 0, 40, 40)
+star = pygame.Rect(random.randint(0, 780), 0, 20, 20)
+score = 0
+lives = 3
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_r and lives == 0:
+            score, lives = 0, 3  # restart
+
+    if lives > 0:
+        keys = pygame.key.get_pressed()
+        player.x += (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * 6
+        player.clamp_ip(screen.get_rect())
+        enemy.y += 5
+        star.y += 3
+        if enemy.top > 600:
+            enemy.topleft = (random.randint(0, 760), -40)
+        if star.top > 600:
+            star.topleft = (random.randint(0, 780), -20)
+
+        if player.colliderect(enemy):
+            lives -= 1
+            enemy.topleft = (random.randint(0, 760), -40)  # move it away so it only hits once
+        if player.colliderect(star):
+            score += 1
+            star.topleft = (random.randint(0, 780), -20)
+
+    screen.fill((0, 0, 0))
+    pygame.draw.rect(screen, (0, 200, 255), player)
+    pygame.draw.rect(screen, (255, 60, 60), enemy)
+    pygame.draw.rect(screen, (255, 220, 0), star)
+    screen.blit(font.render(f"Score: {score}", True, (255, 255, 255)), (10, 10))
+    screen.blit(font.render(f"Lives: {lives}", True, (255, 255, 255)), (680, 10))
+    if lives == 0:
+        text = font.render(f"Game over! Score {score}. Press R to restart", True, (255, 255, 255))
+        screen.blit(text, text.get_rect(center=(400, 300)))
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+After a hit, the enemy jumps back to the top. Without that, it would keep touching the player for several frames and take all your lives at once.
+<<<END>>>
+
+<<<PROMPT>>>
+Make my VPython simulation pause and resume when I press the space bar.
+
+```python
+from vpython import *
+ball = sphere(pos=vector(-5, 0, 0), radius=0.5, color=color.red, make_trail=True)
+ball.velocity = vector(2, 3, 0)
+dt = 0.01
+while True:
+    rate(100)
+    ball.velocity.y -= 9.8 * dt
+    ball.pos = ball.pos + ball.velocity * dt
+    if ball.pos.y < -3:
+        ball.velocity.y = abs(ball.velocity.y)
+    if ball.pos.x > 5:
+        ball.pos.x = -5
+```
+<<<ANSWER>>>
+Bind a key handler that flips a `paused` flag, and skip the physics while it's set. `rate()` stays outside the `if` so the loop keeps waiting for keys:
+
+```python
+from vpython import *
+
+ball = sphere(pos=vector(-5, 0, 0), radius=0.5, color=color.red, make_trail=True)
+ball.velocity = vector(2, 3, 0)
+status = label(pos=vector(0, 4, 0), text="", box=False, height=16)
+paused = False
+
+
+def on_key(evt):
+    global paused
+    if evt.key == " ":
+        paused = not paused
+        status.text = "PAUSED (space to resume)" if paused else ""
+
+
+scene.bind("keydown", on_key)
+
+dt = 0.01
+while True:
+    rate(100)
+    if paused:
+        continue
+    ball.velocity.y -= 9.8 * dt
+    ball.pos = ball.pos + ball.velocity * dt
+    if ball.pos.y < -3:
+        ball.velocity.y = abs(ball.velocity.y)
+    if ball.pos.x > 5:
+        ball.pos.x = -5
+```
+
+`global paused` is needed because the handler changes a variable that lives outside the function. Click the scene once first so it receives your key presses.
+<<<END>>>
+
+<<<PROMPT>>>
+Can you rewrite this pygame code to use a Player class? It's getting messy.
+
+```python
+import pygame
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+px, py = 320, 240
+pspeed = 4
+pcolor = (0, 255, 0)
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT]: px -= pspeed
+    if keys[pygame.K_RIGHT]: px += pspeed
+    if keys[pygame.K_UP]: py -= pspeed
+    if keys[pygame.K_DOWN]: py += pspeed
+    screen.fill((0, 0, 0))
+    pygame.draw.circle(screen, pcolor, (px, py), 20)
+    pygame.display.flip()
+    clock.tick(60)
+pygame.quit()
+```
+<<<ANSWER>>>
+Here the player's data and behavior live together in a class, and the main loop just calls `update()` and `draw()`:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((640, 480))
+clock = pygame.time.Clock()
+
+
+class Player:
+    def __init__(self, x, y):
+        self.pos = pygame.Vector2(x, y)
+        self.speed = 240  # pixels per second
+        self.color = (0, 255, 0)
+        self.radius = 20
+
+    def update(self, dt, keys):
+        move = pygame.Vector2(keys[pygame.K_RIGHT] - keys[pygame.K_LEFT],
+                              keys[pygame.K_DOWN] - keys[pygame.K_UP])
+        if move.length() > 0:
+            self.pos += move.normalize() * self.speed * dt
+        w, h = screen.get_size()
+        self.pos.x = max(self.radius, min(w - self.radius, self.pos.x))
+        self.pos.y = max(self.radius, min(h - self.radius, self.pos.y))
+
+    def draw(self, surface):
+        pygame.draw.circle(surface, self.color, (round(self.pos.x), round(self.pos.y)), self.radius)
+
+
+player = Player(320, 240)
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    player.update(dt, pygame.key.get_pressed())
+    screen.fill((0, 0, 0))
+    player.draw(screen)
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+While I was at it:
+- Movement uses `dt`, so the speed is the same at any frame rate (240 px/s matches your old 4 px per frame at 60 FPS).
+- Diagonal movement is normalized so it isn't faster than straight movement.
+- The player stays inside the window.
+
+To add enemies later, give them their own class with the same `update()`/`draw()` pattern.
+<<<END>>>
+
+<<<PROMPT>>>
+Add a second ball with a bigger mass to my VPython collision, and make them bounce off each other.
+
+```python
+from vpython import *
+a = sphere(pos=vector(-4, 0, 0), radius=0.5, color=color.red)
+a.velocity = vector(2, 0, 0)
+dt = 0.01
+while True:
+    rate(100)
+    a.pos = a.pos + a.velocity * dt
+```
+<<<ANSWER>>>
+For a head-on elastic collision, momentum and kinetic energy are both conserved, which gives these velocities after the hit:
+
+v1' = ((m1 − m2) v1 + 2 m2 v2) / (m1 + m2), and v2' = ((m2 − m1) v2 + 2 m1 v1) / (m1 + m2)
+
+```python
+from vpython import *
+
+scene.title = "Elastic collision: light red ball, heavy blue ball"
+a = sphere(pos=vector(-4, 0, 0), radius=0.5, color=color.red)
+b = sphere(pos=vector(2, 0, 0), radius=0.8, color=color.blue)
+a.mass, b.mass = 1.0, 3.0
+a.velocity = vector(2, 0, 0)
+b.velocity = vector(0, 0, 0)
+info = label(pos=vector(0, 2, 0), text="", box=False, height=14)
+
+dt = 0.01
+t = 0
+while t < 8:
+    rate(100)
+    t += dt
+    a.pos = a.pos + a.velocity * dt
+    b.pos = b.pos + b.velocity * dt
+
+    approaching = (b.pos.x - a.pos.x) * (a.velocity.x - b.velocity.x) > 0
+    if mag(b.pos - a.pos) < a.radius + b.radius and approaching:
+        m1, m2 = a.mass, b.mass
+        v1, v2 = a.velocity.x, b.velocity.x
+        a.velocity.x = ((m1 - m2) * v1 + 2 * m2 * v2) / (m1 + m2)
+        b.velocity.x = ((m2 - m1) * v2 + 2 * m1 * v1) / (m1 + m2)
+
+    p = a.mass * a.velocity.x + b.mass * b.velocity.x
+    ke = 0.5 * a.mass * a.velocity.x ** 2 + 0.5 * b.mass * b.velocity.x ** 2
+    info.text = f"momentum {p:.2f}   kinetic energy {ke:.2f}"
+```
+
+The light ball bounces back at half its speed and the heavy one moves off forward at half speed (that's what those formulas give for a 1:3 mass ratio), and the momentum and energy numbers don't change. The `approaching` check makes sure a collision is only handled once.
+<<<END>>>
+
+<<<PROMPT>>>
+Make the enemies in my pygame game get faster as time goes on. Right now they always move at speed 3:
+
+for enemy in enemies:
+    enemy.y += 3
+<<<ANSWER>>>
+Keep track of how long the game has been running and work the speed out from that. Using seconds (`dt`) instead of frames keeps it the same on every PC:
+
+```python
+import random
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 600, 700
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+font = pygame.font.Font(None, 32)
+
+enemies = [pygame.Rect(random.randint(0, WIDTH - 30), random.randint(-HEIGHT, 0), 30, 30) for _ in range(8)]
+elapsed = 0.0  # seconds since the game started
+
+BASE_SPEED = 180     # pixels per second at the start (3 per frame at 60 FPS)
+SPEED_UP = 12        # extra pixels per second, added every second
+MAX_SPEED = 600
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    elapsed += dt
+    speed = min(MAX_SPEED, BASE_SPEED + SPEED_UP * elapsed)
+    for enemy in enemies:
+        enemy.y += round(speed * dt)
+        if enemy.top > HEIGHT:
+            enemy.topleft = (random.randint(0, WIDTH - 30), -30)
+
+    screen.fill((15, 15, 25))
+    for enemy in enemies:
+        pygame.draw.rect(screen, (230, 70, 80), enemy)
+    screen.blit(font.render(f"Time {elapsed:.0f}s   Speed {speed:.0f}", True, (255, 255, 255)), (10, 10))
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+`min(MAX_SPEED, ...)` puts a cap on it, so after about 35 seconds the game stops getting harder instead of becoming impossible. Change `SPEED_UP` to make the difficulty ramp faster or slower.
+<<<END>>>
+
+<<<PROMPT>>>
+Explain what this pygame code does:
+
+```python
+for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+        running = False
+    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+        running = False
+```
+<<<CHECK none>>>
+<<<ANSWER>>>
+It's the part of a game loop that checks for ways to quit:
+
+- `pygame.event.get()` takes everything that happened since the last frame (key presses, clicks, the close button) out of pygame's event queue, so the loop goes through them one at a time.
+- `pygame.QUIT` is the event you get when someone clicks the window's X button.
+- `pygame.KEYDOWN` is any key being pressed, and `event.key == pygame.K_ESCAPE` checks that it was the Escape key.
+- Either one sets `running = False`, which ends the `while running:` loop on its next check, so the code after the loop (usually `pygame.quit()`) can close everything cleanly.
+
+This loop has to run every frame, because reading the events is also what keeps the window responsive.
+<<<END>>>

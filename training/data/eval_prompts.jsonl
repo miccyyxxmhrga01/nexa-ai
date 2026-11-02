@@ -1,0 +1,30 @@
+{"id": "pg01", "kind": "pygame", "prompt": "Make a pygame program where a square smoothly follows the mouse cursor."}
+{"id": "pg02", "kind": "pygame", "prompt": "Write a two-player Pong game in pygame. Left paddle uses W and S, right paddle uses the Up and Down arrows."}
+{"id": "pg03", "kind": "pygame", "prompt": "Create a pygame window that shows a stopwatch counting the seconds since the program started."}
+{"id": "pg04", "kind": "pygame", "prompt": "Make a pygame starfield where stars fly out from the center of the screen toward you."}
+{"id": "pg05", "kind": "pygame", "prompt": "Write a pygame program where each mouse click spawns a ball that falls with gravity and bounces on the floor."}
+{"id": "pg06", "kind": "pygame", "prompt": "Make a snake game in pygame with arrow key controls, food, and a score."}
+{"id": "pg07", "kind": "pygame", "prompt": "Create a pygame program with a player rectangle that runs left and right and jumps when I press space."}
+{"id": "pg08", "kind": "pygame", "prompt": "Draw a chessboard pattern in a pygame window.", "static": true}
+{"id": "pg09", "kind": "pygame", "prompt": "Make a simple paint program in pygame: hold the left mouse button to draw and press C to clear the screen."}
+{"id": "pg10", "kind": "pygame", "prompt": "Write a pygame program with a health bar that goes down when I press H and refills when I press R."}
+{"id": "pg11", "kind": "pygame", "prompt": "Make a pygame game where I move left and right to dodge falling blocks. Show the score and a game over message."}
+{"id": "pg12", "kind": "pygame", "prompt": "Create a pygame program that shows a rectangle spinning in the middle of the window using pygame.transform.rotate."}
+{"id": "pg13", "kind": "pygame", "prompt": "Make a particle explosion in pygame wherever I click the mouse."}
+{"id": "pg14", "kind": "pygame", "prompt": "Write a pygame menu screen with Play and Quit buttons that respond to mouse clicks."}
+{"id": "pg15", "kind": "pygame", "prompt": "Use a pygame.sprite.Sprite class for a player that moves with the arrow keys and can't leave the screen."}
+{"id": "pg16", "kind": "pygame", "prompt": "In pygame, let me type my name with the keyboard and show it on the screen as I type."}
+{"id": "vp01", "kind": "vpython", "prompt": "Simulate a simple pendulum in VPython."}
+{"id": "vp02", "kind": "vpython", "prompt": "Make a VPython animation of the Earth orbiting the Sun with the Moon orbiting the Earth."}
+{"id": "vp03", "kind": "vpython", "prompt": "Simulate a projectile launched at 45 degrees in VPython and graph its height over time."}
+{"id": "vp04", "kind": "vpython", "prompt": "Show a mass on a spring oscillating horizontally in VPython, using a helix for the spring."}
+{"id": "vp05", "kind": "vpython", "prompt": "Make a VPython scene with a cube that keeps rotating."}
+{"id": "vp06", "kind": "vpython", "prompt": "Simulate two balls colliding elastically in one dimension in VPython."}
+{"id": "vp07", "kind": "vpython", "prompt": "Show the electric field around a point charge using arrows in VPython.", "static": true}
+{"id": "vp08", "kind": "vpython", "prompt": "Make a VPython ball that bounces on the floor and loses some energy on every bounce."}
+{"id": "vp09", "kind": "vpython", "prompt": "Create a 3D random walk in VPython that leaves a trail."}
+{"id": "vp10", "kind": "vpython", "prompt": "Add a slider in VPython that changes the radius of a sphere."}
+{"id": "vp11", "kind": "vpython", "prompt": "Simulate a charged particle moving in a uniform magnetic field in VPython."}
+{"id": "vp12", "kind": "vpython", "prompt": "Draw an animated sine wave in VPython using a curve that moves over time."}
+{"id": "vp13", "kind": "vpython", "prompt": "Make a car out of boxes in VPython that I can drive with the arrow keys."}
+{"id": "vp14", "kind": "vpython", "prompt": "Graph the position and velocity of an object falling with air resistance in VPython."}

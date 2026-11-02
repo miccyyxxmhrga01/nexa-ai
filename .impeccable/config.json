@@ -1,0 +1,80 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "static/index.html"
+        ],
+        "createdAt": "2026-10-31T10:21:19.691Z",
+        "reason": "Agent: preserving the existing green hologram identity documented in README; this task changes voice recognition"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "static/index.html"
+        ],
+        "createdAt": "2026-10-31T10:21:19.740Z",
+        "reason": "Agent: preserving the incumbent Nexa greeting styling during a scoped voice feature change"
+      },
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "static/style.css"
+        ],
+        "createdAt": "2026-10-31T10:21:19.789Z",
+        "reason": "Agent: preserving the incumbent Nexa greeting styling during a scoped voice feature change"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.2, 1.4, .4, 1)",
+        "files": [
+          "static/index.html"
+        ],
+        "createdAt": "2026-10-31T10:21:19.841Z",
+        "reason": "Agent: existing physical hologram emblem entrance; intentional companion animation"
+      },
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "static/index.html"
+        ],
+        "createdAt": "2026-10-31T10:21:19.886Z",
+        "reason": "Agent: indicator is tied to an active streaming reply and removed when the stream ends"
+      },
+      {
+        "rule": "marquee",
+        "value": "*",
+        "files": [
+          "static/index.html"
+        ],
+        "createdAt": "2026-10-31T10:21:19.938Z",
+        "reason": "Agent: false positive; to-bottom uses a 3px vertical bob, not horizontally scrolling content"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          "static/index.html"
+        ],
+        "createdAt": "2026-10-31T10:21:19.988Z",
+        "reason": "Agent: compact toolbar wraps padded icon buttons; the buttons supply their own text inset"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.2, 1.4, .4, 1)",
+        "files": [
+          "static/style.css"
+        ],
+        "createdAt": "2026-10-31T10:23:03.023Z",
+        "reason": "Agent: preserving the existing physical hologram emblem entrance during a voice recognition change"
+      }
+    ]
+  }
+}

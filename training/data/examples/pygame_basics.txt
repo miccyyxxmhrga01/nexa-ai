@@ -1,0 +1,282 @@
+<<<PROMPT>>>
+How do I open a window in pygame?
+<<<PROMPT>>>
+Show me the basic structure of a pygame program.
+<<<PROMPT>>>
+Make an empty pygame window with a title and a dark blue background.
+<<<ANSWER>>>
+Every pygame program has the same skeleton: set up, then a loop that handles events, updates, and draws. Here's the smallest useful one:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("My Game")
+clock = pygame.time.Clock()
+
+running = True
+while running:
+    # 1. Handle events (closing the window, keys, mouse)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    # 2. Update the game state here
+
+    # 3. Draw everything, then show the new frame
+    screen.fill((20, 30, 70))
+    pygame.display.flip()
+
+    clock.tick(60)  # at most 60 frames per second
+
+pygame.quit()
+```
+
+How it works:
+- `pygame.event.get()` must run every frame, or Windows thinks the program froze. The `QUIT` event is the window's close button.
+- `screen.fill()` clears the last frame, and `pygame.display.flip()` puts the new one on screen.
+- `clock.tick(60)` keeps the loop at 60 frames per second so it doesn't use 100% of your CPU.
+
+Install pygame first with `pip install pygame` if you haven't.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a ball that bounces around the screen in pygame.
+<<<PROMPT>>>
+Write a pygame program with a ball bouncing off the edges of the window.
+<<<ANSWER>>>
+Here's a ball that bounces off all four edges:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Bouncing Ball")
+clock = pygame.time.Clock()
+
+x, y = WIDTH / 2, HEIGHT / 2
+vx, vy = 300, 220  # speed in pixels per second
+radius = 25
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000  # seconds since the last frame
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    x += vx * dt
+    y += vy * dt
+
+    # Bounce: put the ball back inside and point the speed away from the wall
+    if x - radius < 0:
+        x, vx = radius, abs(vx)
+    elif x + radius > WIDTH:
+        x, vx = WIDTH - radius, -abs(vx)
+    if y - radius < 0:
+        y, vy = radius, abs(vy)
+    elif y + radius > HEIGHT:
+        y, vy = HEIGHT - radius, -abs(vy)
+
+    screen.fill((20, 20, 30))
+    pygame.draw.circle(screen, (255, 100, 80), (round(x), round(y)), radius)
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `dt` is the time since the last frame, so `x += vx * dt` moves the ball at the same speed on any PC.
+- On a bounce it moves the ball back inside the window and sets the direction with `abs()`. Just flipping the sign can leave the ball stuck vibrating in the wall.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I move a rectangle with the arrow keys in pygame?
+<<<PROMPT>>>
+Make a player square I can move with the arrow keys or WASD, and keep it inside the window.
+<<<ANSWER>>>
+Use `pygame.key.get_pressed()` for smooth movement while a key is held down:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Move the Square")
+clock = pygame.time.Clock()
+
+player = pygame.Rect(0, 0, 50, 50)
+player.center = (WIDTH // 2, HEIGHT // 2)
+SPEED = 350  # pixels per second
+
+running = True
+while running:
+    dt = clock.tick(60) / 1000
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    keys = pygame.key.get_pressed()
+    dx = (keys[pygame.K_RIGHT] or keys[pygame.K_d]) - (keys[pygame.K_LEFT] or keys[pygame.K_a])
+    dy = (keys[pygame.K_DOWN] or keys[pygame.K_s]) - (keys[pygame.K_UP] or keys[pygame.K_w])
+    player.x += round(dx * SPEED * dt)
+    player.y += round(dy * SPEED * dt)
+    player.clamp_ip(screen.get_rect())  # keep it inside the window
+
+    screen.fill((30, 30, 40))
+    pygame.draw.rect(screen, (80, 200, 120), player)
+    pygame.display.flip()
+
+pygame.quit()
+```
+
+How it works:
+- `get_pressed()` tells you which keys are held right now, so the square keeps moving while you hold a key. A `KEYDOWN` event only fires once per press.
+- `dx` and `dy` are -1, 0 or 1 (True counts as 1), so opposite keys cancel out.
+- `clamp_ip()` pushes the rectangle back inside the screen rectangle.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I draw shapes in pygame? Show circles, rectangles, lines and polygons.
+<<<PROMPT>>>
+Give me a pygame example that draws different shapes.
+<<<ANSWER>>>
+All the shape functions live in `pygame.draw`. This draws one of each:
+
+```python
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+pygame.display.set_caption("Shapes")
+clock = pygame.time.Clock()
+
+WHITE = (240, 240, 240)
+RED = (220, 60, 60)
+GREEN = (60, 200, 90)
+BLUE = (70, 120, 230)
+YELLOW = (240, 210, 60)
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    screen.fill((25, 25, 35))
+    pygame.draw.rect(screen, RED, (50, 50, 200, 120))                        # filled rectangle
+    pygame.draw.rect(screen, WHITE, (300, 50, 200, 120), width=4, border_radius=15)  # outline, round corners
+    pygame.draw.circle(screen, GREEN, (150, 330), 70)                        # filled circle
+    pygame.draw.circle(screen, WHITE, (400, 330), 70, width=3)               # circle outline
+    pygame.draw.ellipse(screen, BLUE, (550, 50, 200, 120))                   # ellipse inside a rectangle
+    pygame.draw.line(screen, YELLOW, (550, 260), (750, 400), width=5)
+    pygame.draw.polygon(screen, BLUE, [(600, 450), (700, 550), (500, 550)])  # triangle
+    pygame.draw.lines(screen, WHITE, False, [(50, 500), (150, 450), (250, 550), (350, 480)], 3)
+    pygame.display.flip()
+    clock.tick(30)
+
+pygame.quit()
+```
+
+A few things to know:
+- Colors are `(red, green, blue)` from 0 to 255.
+- `width=0` (the default) fills the shape; any other `width` draws just the outline that many pixels thick. It must be a whole number.
+- Rectangles are `(x, y, width, height)`, measured from the top-left corner, and y grows downward.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I show text and a score on the screen in pygame?
+<<<PROMPT>>>
+Display a score in the corner of a pygame window that goes up when I press space.
+<<<ANSWER>>>
+Make a font once, then `render()` the text to a surface and `blit()` it each frame:
+
+```python
+import pygame
+
+pygame.init()
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Score")
+clock = pygame.time.Clock()
+
+font = pygame.font.Font(None, 48)        # None = pygame's built-in font
+small_font = pygame.font.Font(None, 28)
+score = 0
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            score += 1
+
+    screen.fill((15, 15, 25))
+
+    score_text = font.render(f"Score: {score}", True, (255, 255, 255))
+    screen.blit(score_text, (20, 20))  # top-left corner
+
+    hint = small_font.render("Press SPACE to score", True, (160, 160, 180))
+    screen.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT // 2)))  # centered
+
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+How it works:
+- Create fonts after `pygame.init()` and outside the loop, because making a font is slow.
+- `render(text, antialias, color)` gives you a surface with the text on it.
+- `get_rect(center=...)` is the easy way to center text anywhere.
+<<<END>>>
+
+<<<PROMPT>>>
+Draw a circle wherever I click the mouse in pygame, and keep all the circles on screen.
+<<<PROMPT>>>
+How do I get mouse clicks in pygame?
+<<<ANSWER>>>
+Listen for `MOUSEBUTTONDOWN` events; `event.pos` is where the click happened. Here every left click adds a circle, and a right click removes the last one:
+
+```python
+import random
+import pygame
+
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+pygame.display.set_caption("Click to draw circles")
+clock = pygame.time.Clock()
+
+circles = []  # each one is (position, radius, color)
+
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # left button
+                color = (random.randint(80, 255), random.randint(80, 255), random.randint(80, 255))
+                circles.append((event.pos, random.randint(10, 40), color))
+            elif event.button == 3 and circles:  # right button
+                circles.pop()
+
+    screen.fill((20, 20, 30))
+    for pos, radius, color in circles:
+        pygame.draw.circle(screen, color, pos, radius)
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+```
+
+Mouse buttons are 1 for left, 2 for middle and 3 for right. To know where the mouse is at any moment (not just on a click), use `pygame.mouse.get_pos()`.
+<<<END>>>

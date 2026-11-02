@@ -1,0 +1,447 @@
+<<<PROMPT>>>
+I get AttributeError: module 'vpython' has no attribute 'Cube'. Here's my code:
+
+```python
+import vpython as vpy
+cube = vpy.Cube(size=10, color=(1, 0, 0))
+for i in range(100):
+    cube.rotation = i * 0.02
+vpy.show()
+```
+<<<PROMPT>>>
+AttributeError: module 'vpython' has no attribute 'Scene'
+<<<ANSWER>>>
+VPython doesn't have `Cube`, `Scene`, `show()` or a `rotation` attribute. Those names come from other libraries. The real VPython names are all lowercase:
+
+- 3D objects: `box` (use it for cubes), `sphere`, `cylinder`, `cone`, `pyramid`, `ellipsoid`, `ring`, `helix`, `arrow`, `curve`, `points`, `label`, `text`, `compound`
+- the 3D view: `scene` (already made for you) or `canvas()` for a new one
+- graphs: `graph`, `gcurve`, `gdots`, `gvbars`
+
+There's no `show()`, because the scene opens in your browser as soon as you make an object. Here's a spinning red cube done the VPython way:
+
+```python
+from vpython import *
+
+scene.title = "Spinning cube"
+cube = box(pos=vector(0, 0, 0), size=vector(2, 2, 2), color=color.red)
+
+while True:
+    rate(60)  # 60 updates per second; needed in every animation loop
+    cube.rotate(angle=0.02, axis=vector(0, 1, 0))
+```
+
+Other differences from what you wrote:
+- Colors are vectors from 0 to 1: `color.red` or `vector(1, 0, 0)`, not tuples.
+- `from vpython import *` is the usual style, so you write `box(...)` instead of `vpy.box(...)`. Both work, but every name must be a real VPython one.
+- Objects turn with `obj.rotate(angle=..., axis=...)`, where the angle is in radians and adds to the current rotation.
+<<<END>>>
+
+<<<PROMPT>>>
+ModuleNotFoundError: No module named 'visual'. I'm following a VPython tutorial:
+
+from visual import *
+d = display(title="Test", width=600, height=400)
+ball = sphere(pos=(0, 4, 0), radius=1, color=color.red)
+<<<ANSWER>>>
+That tutorial is for the old VPython 6 (`visual`), which doesn't work with current Python. Modern VPython 7 is the `vpython` package (`pip install vpython`), and a few things changed:
+- `from visual import *` → `from vpython import *`
+- `display(...)` → `canvas(...)`
+- positions and colors must be `vector(...)`, not tuples like `(0, 4, 0)`
+- animation loops need `rate()`
+
+Your code in VPython 7:
+
+```python
+from vpython import *
+
+d = canvas(title="Test", width=600, height=400)
+ball = sphere(pos=vector(0, 4, 0), radius=1, color=color.red)
+floor = box(pos=vector(0, 0, 0), size=vector(8, 0.2, 8), color=color.green)
+
+ball.velocity = vector(0, 0, 0)
+dt = 0.01
+while True:
+    rate(100)
+    ball.velocity.y -= 9.8 * dt
+    ball.pos = ball.pos + ball.velocity * dt
+    if ball.pos.y - ball.radius < floor.pos.y + floor.height / 2:
+        ball.velocity.y = abs(ball.velocity.y)
+```
+
+I added a floor and a bounce so there's something to watch. Old `frame()` objects don't exist anymore either; use `compound()` to group objects.
+<<<END>>>
+
+<<<PROMPT>>>
+My VPython animation doesn't move. The browser just shows the ball at the end position, or freezes.
+
+```python
+from vpython import *
+ball = sphere(pos=vector(-5, 0, 0), radius=0.5)
+while ball.pos.x < 5:
+    ball.pos.x += 0.001
+```
+<<<PROMPT>>>
+vpython window is blank and my program seems stuck
+<<<ANSWER>>>
+The loop has no `rate()`. Without it, Python runs the loop as fast as it can and never gives the browser a chance to draw, so you either see nothing or just the final result. Put `rate()` at the top of every animation loop:
+
+```python
+from vpython import *
+
+scene.title = "Moving ball"
+ball = sphere(pos=vector(-5, 0, 0), radius=0.5, color=color.cyan, make_trail=True)
+
+speed = 2   # units per second
+dt = 0.01
+while ball.pos.x < 5:
+    rate(100)  # at most 100 loops per second
+    ball.pos.x += speed * dt
+```
+
+`rate(100)` with `dt = 0.01` means 100 steps of 0.01 s each second, so the motion runs in real time: 10 units at 2 units per second takes 5 seconds.
+<<<END>>>
+
+<<<PROMPT>>>
+AttributeError: pos must be a vector. My line is: ball = sphere(pos=(0, 2, 0), radius=0.5)
+<<<ANSWER>>>
+VPython needs a `vector` for positions, not a tuple or a list. Wrap the numbers in `vector(...)`:
+
+```python
+from vpython import *
+
+ball = sphere(pos=vector(0, 2, 0), radius=0.5, color=color.orange)
+pole = cylinder(pos=vector(0, 0, 0), axis=vector(0, 1.5, 0), radius=0.05)
+base = box(pos=vector(0, -0.05, 0), size=vector(2, 0.1, 2), color=color.gray(0.5))
+```
+
+The same goes for every vector attribute: `pos`, `axis`, `size`, `up`, `color`, and also `velocity` if you want to do vector math with it. Use `vec(...)` as a shorter name for `vector(...)` if you like.
+<<<END>>>
+
+<<<PROMPT>>>
+My VPython sphere is always in the middle of the screen even though I set its position. No error.
+
+ball = sphere(position=vector(3, 2, 0), radius=0.5)
+<<<ANSWER>>>
+The attribute is `pos`, not `position`. VPython lets you add your own attributes to objects (like `ball.velocity`), so `position=` doesn't cause an error. It just makes a new attribute that VPython ignores, and the ball stays at the default position (0, 0, 0).
+
+```python
+from vpython import *
+
+ball = sphere(pos=vector(3, 2, 0), radius=0.5, color=color.red)
+marker = sphere(pos=vector(0, 0, 0), radius=0.1, color=color.white)  # the origin, for comparison
+label(pos=ball.pos, text="(3, 2, 0)", yoffset=30, height=12)
+```
+
+Other names to watch for: `color` (not `colour`), `radius` (not `rad`), `axis` for the direction of arrows and cylinders, and `opacity` for transparency.
+<<<END>>>
+
+<<<PROMPT>>>
+I wanted an orange sphere in VPython so I wrote color=vector(255, 165, 0) but it's almost white.
+<<<ANSWER>>>
+VPython colors go from 0 to 1, not 0 to 255. Anything over 1 counts as full brightness, so `(255, 165, 0)` becomes `(1, 1, 0)` and looks pale yellow. Divide by 255:
+
+```python
+from vpython import *
+
+
+def rgb(r, g, b):
+    """Make a VPython color from 0-255 values."""
+    return vector(r / 255, g / 255, b / 255)
+
+
+scene.background = color.white
+sphere(pos=vector(-2, 0, 0), radius=0.8, color=rgb(255, 165, 0))   # orange
+sphere(pos=vector(0, 0, 0), radius=0.8, color=rgb(70, 130, 180))   # steel blue
+sphere(pos=vector(2, 0, 0), radius=0.8, color=color.orange)         # VPython's own orange
+```
+
+The little `rgb()` helper lets you paste colors from a color picker.
+<<<END>>>
+
+<<<PROMPT>>>
+TypeError: unsupported operand type(s) for *: 'vector' and 'vector' in VPython. I'm trying to compute force * velocity for power.
+<<<ANSWER>>>
+VPython vectors can be multiplied by numbers, but not by other vectors with `*`, because there are two different vector products. For power you want the dot product, which gives a number:
+
+```python
+from vpython import *
+
+force = vector(3, 4, 0)
+velocity = vector(2, 0, 1)
+
+power = dot(force, velocity)            # number: 3*2 + 4*0 + 0*1 = 6
+torque = cross(vector(1, 0, 0), force)  # vector: perpendicular to both
+print("power =", power, "W")
+print("torque =", torque)
+
+# Show the vectors
+arrow(pos=vector(0, 0, 0), axis=force, color=color.red)
+arrow(pos=vector(0, 0, 0), axis=velocity, color=color.green)
+arrow(pos=vector(0, 0, 0), axis=torque, color=color.yellow)
+```
+
+Quick guide:
+- `dot(a, b)` (or `a.dot(b)`) → a number, for work, power and angles
+- `cross(a, b)` → a vector, for torque, magnetic force and normals
+- `a * 2`, `a / 2` → scale a vector
+- for component-by-component products, write it out: `vector(a.x * b.x, a.y * b.y, a.z * b.z)`
+<<<END>>>
+
+<<<PROMPT>>>
+My VPython ball doesn't move at all, even though I update the position in the loop.
+
+```python
+from vpython import *
+ball = sphere(pos=vector(0, 0, 0), radius=0.5)
+v = vector(1, 0, 0)
+dt = 0.01
+while True:
+    rate(100)
+    p = ball.pos
+    p = p + v * dt
+```
+<<<ANSWER>>>
+`p = p + v * dt` makes a new vector and stores it in `p`, but nothing ever puts it back into the ball. Assign the new position to `ball.pos` itself:
+
+```python
+from vpython import *
+
+ball = sphere(pos=vector(-5, 0, 0), radius=0.5, color=color.green, make_trail=True)
+v = vector(1, 0.5, 0)
+dt = 0.01
+
+while ball.pos.x < 5:
+    rate(100)
+    ball.pos = ball.pos + v * dt  # update the object's own position
+```
+
+Changing a part directly, like `ball.pos.x += 1`, also works, because that changes the ball's own vector.
+<<<END>>>
+
+<<<PROMPT>>>
+AttributeError: 'sphere' object has no attribute 'velocity'
+<<<ANSWER>>>
+`velocity` isn't built into VPython. It's an attribute you create yourself, and you have to set it before you first read it. Give it a starting value right after making the object:
+
+```python
+from vpython import *
+
+ball = sphere(pos=vector(0, 5, 0), radius=0.4, color=color.red, make_trail=True)
+ball.velocity = vector(2, 0, 0)  # create the attribute before the loop
+ball.mass = 1.0                  # same for anything else you want to store
+
+ground = box(pos=vector(0, -0.1, 0), size=vector(20, 0.2, 4), color=color.green)
+g = vector(0, -9.8, 0)
+dt = 0.01
+
+while ball.pos.y > ball.radius:
+    rate(100)
+    ball.velocity = ball.velocity + g * dt
+    ball.pos = ball.pos + ball.velocity * dt
+```
+
+The loop stops when the ball reaches the ground. Check the spelling too: `ball.velocity` and `ball.velocty` would be two different attributes.
+<<<END>>>
+
+<<<PROMPT>>>
+My bouncing ball in VPython sinks into the floor and then gets stuck vibrating there.
+
+if ball.pos.y < floor.pos.y:
+    ball.velocity.y = -ball.velocity.y
+<<<ANSWER>>>
+Two problems:
+1. `ball.pos.y` is the center of the ball and `floor.pos.y` is the middle of the floor, so the ball is already half buried before it bounces. Compare the bottom of the ball with the top of the floor.
+2. Flipping the sign can flip it again on the next step while the ball is still below the surface, so it gets stuck. Set the direction to *up* with `abs()` instead.
+
+```python
+from vpython import *
+
+floor = box(pos=vector(0, 0, 0), size=vector(10, 0.5, 4), color=color.green)
+ball = sphere(pos=vector(0, 6, 0), radius=0.5, color=color.red)
+ball.velocity = vector(0, 0, 0)
+g = vector(0, -9.8, 0)
+dt = 0.005
+
+floor_top = floor.pos.y + floor.height / 2
+while True:
+    rate(200)
+    ball.velocity = ball.velocity + g * dt
+    ball.pos = ball.pos + ball.velocity * dt
+    if ball.pos.y - ball.radius < floor_top:          # bottom of ball vs top of floor
+        ball.pos.y = floor_top + ball.radius           # put it back on the surface
+        ball.velocity.y = abs(ball.velocity.y)         # always bounce upward
+```
+
+`floor.height` is the floor's thickness (its `size.y`), so `floor.pos.y + floor.height / 2` is its top surface.
+<<<END>>>
+
+<<<PROMPT>>>
+The planet in my VPython orbit simulation slowly spirals away from the sun. Why?
+
+```python
+planet.pos = planet.pos + planet.velocity * dt
+force = -G * M * planet.mass * planet.pos.hat / mag2(planet.pos)
+planet.velocity = planet.velocity + force / planet.mass * dt
+```
+<<<ANSWER>>>
+You update the position before the velocity (plain Euler). That adds a tiny bit of energy every step, so the orbit keeps growing. Swap the order: compute the force, update the velocity, *then* move the planet with the new velocity. That's the Euler-Cromer method, and it keeps orbits closed:
+
+```python
+from vpython import *
+
+scene.background = color.black
+G = 1
+M = 1000
+sun = sphere(pos=vector(0, 0, 0), radius=0.8, color=color.yellow, emissive=True)
+planet = sphere(pos=vector(10, 0, 0), radius=0.3, color=color.cyan, make_trail=True)
+planet.mass = 1
+planet.velocity = vector(0, 10, 0)  # sqrt(G*M/r): a circular orbit
+
+dt = 0.002
+while True:
+    rate(500)
+    r = planet.pos - sun.pos
+    force = -G * M * planet.mass * r.hat / mag2(r)
+    planet.velocity = planet.velocity + force / planet.mass * dt  # 1. velocity first
+    planet.pos = planet.pos + planet.velocity * dt                 # 2. then position
+```
+
+I also measured `r` from the sun's position, so it still works if you move the sun away from the origin. A smaller `dt` makes either method more accurate, but Euler-Cromer is the one that stays stable.
+<<<END>>>
+
+<<<PROMPT>>>
+I want to plot the height of my VPython ball on a graph but height.plot(t, ball.pos) gives an error.
+<<<ANSWER>>>
+A graph point needs two numbers, but `ball.pos` is a vector (three numbers). Plot one component, like `ball.pos.y` for the height:
+
+```python
+from vpython import *
+
+ball = sphere(pos=vector(0, 0, 0), radius=0.3, color=color.red, make_trail=True)
+ball.velocity = vector(2, 8, 0)
+
+g1 = graph(title="Ball", xtitle="t (s)", ytitle="m or m/s", height=250)
+height = gcurve(graph=g1, color=color.blue, label="height y")
+speed = gcurve(graph=g1, color=color.red, label="speed")
+
+dt = 0.01
+t = 0
+while ball.pos.y >= 0:
+    rate(100)
+    ball.velocity.y -= 9.8 * dt
+    ball.pos = ball.pos + ball.velocity * dt
+    t += dt
+    height.plot(t, ball.pos.y)          # a number
+    speed.plot(t, mag(ball.velocity))   # mag() turns a vector into a number
+```
+
+Use `.x`, `.y` or `.z` for one part of a vector, or `mag(v)` for its length.
+<<<END>>>
+
+<<<PROMPT>>>
+TypeError: A vector needs 3 components. I'm making a 2D simulation so I wrote vector(3, 4).
+<<<ANSWER>>>
+VPython vectors are always 3D. For a 2D simulation, just keep `z` at 0:
+
+```python
+from vpython import *
+
+scene.title = "2D motion in the x-y plane"
+puck = sphere(pos=vector(-4, 0, 0), radius=0.3, color=color.yellow, make_trail=True)
+puck.velocity = vector(3, 4, 0)  # x, y, and z = 0
+gravity = vector(0, -9.8, 0)
+
+dt = 0.01
+while puck.pos.y >= 0:
+    rate(100)
+    puck.velocity = puck.velocity + gravity * dt
+    puck.pos = puck.pos + puck.velocity * dt
+```
+
+Everything stays in the x-y plane, and the default camera looks straight at that plane, so it looks 2D.
+<<<END>>>
+
+<<<PROMPT>>>
+My VPython arrow points in a weird direction. I want it to go from point A to point B:
+
+arrow(pos=vector(1, 1, 0), axis=vector(4, 3, 0))
+<<<ANSWER>>>
+`axis` isn't the end point. It's the arrow's direction and length, measured from `pos`. For an arrow from A to B, use `axis = B - A`:
+
+```python
+from vpython import *
+
+A = vector(1, 1, 0)
+B = vector(4, 3, 0)
+
+sphere(pos=A, radius=0.1, color=color.green)
+sphere(pos=B, radius=0.1, color=color.red)
+arrow(pos=A, axis=B - A, shaftwidth=0.08, color=color.yellow)
+label(pos=A, text="A", yoffset=-20, box=False)
+label(pos=B, text="B", yoffset=20, box=False)
+```
+
+The same goes for `cylinder` and `cone`: `pos` is one end and `axis` reaches to the other end, so a rod between two balls is `cylinder(pos=ball1.pos, axis=ball2.pos - ball1.pos, radius=0.05)`.
+<<<END>>>
+
+<<<PROMPT>>>
+I used box.rotate(angle=45) in VPython and it spun way more than 45 degrees.
+<<<ANSWER>>>
+VPython angles are in **radians**, so `angle=45` is about 2578 degrees. Convert with `radians()`:
+
+```python
+from vpython import *
+
+scene.title = "Rotations in radians"
+a = box(pos=vector(-2, 0, 0), size=vector(2, 0.4, 0.4), color=color.red)
+b = box(pos=vector(2, 0, 0), size=vector(2, 0.4, 0.4), color=color.blue)
+
+a.rotate(angle=radians(45), axis=vector(0, 0, 1))   # 45 degrees
+b.rotate(angle=pi / 2, axis=vector(0, 0, 1))         # 90 degrees, written in radians
+```
+
+`radians()` and `degrees()` come with `from vpython import *`. Also, each `rotate()` call adds to the current rotation, so calling `rotate(angle=radians(1))` in a loop turns the object 1 degree per frame.
+<<<END>>>
+
+<<<PROMPT>>>
+My VPython ball zooms off the screen almost instantly even though I have rate(100).
+
+ball.velocity = vector(1, 0, 0)
+dt = 1
+while True:
+    rate(100)
+    ball.pos = ball.pos + ball.velocity * dt
+<<<ANSWER>>>
+`rate(100)` runs 100 loops per second, and with `dt = 1` each loop moves the ball a whole simulated second. So 100 simulated seconds pass every real second, and the ball goes 100 times too fast. Make `dt` match the rate, `dt = 1 / rate`, and it runs in real time:
+
+```python
+from vpython import *
+
+ball = sphere(pos=vector(-6, 0, 0), radius=0.4, color=color.orange, make_trail=True)
+ball.velocity = vector(1, 0, 0)  # 1 unit per second
+
+steps_per_second = 100
+dt = 1 / steps_per_second  # 0.01 s per step
+t = 0
+while t < 12:
+    rate(steps_per_second)
+    ball.pos = ball.pos + ball.velocity * dt
+    t += dt
+```
+
+Now it takes 12 real seconds to go 12 units. To make a simulation run faster than real time on purpose, do several small physics steps per `rate()` call instead of making `dt` big, which keeps it accurate.
+<<<END>>>
+
+<<<PROMPT>>>
+Can I use VPython in a Jupyter notebook? And why does running my script open a browser tab?
+<<<CHECK none>>>
+<<<ANSWER>>>
+Yes, both work:
+
+- **As a script** (`python myfile.py`): VPython starts a small local web server and opens your browser to show the 3D scene. That's normal, since the drawing is done by the browser's WebGL. Nothing goes to the internet; it all runs on your PC.
+- **In Jupyter**: install it in the same environment (`pip install vpython`), then put `from vpython import *` in a cell. The scene appears right below the cell. If you rerun the notebook, restart the kernel first, or old scenes can get stuck.
+
+Two tips:
+- When you run a script, closing its browser tab also stops the Python program.
+- There's also Web VPython at glowscript.org, which runs in the browser with no install, but it uses slightly different syntax (its programs start with a `Web VPython 3.2` line).
+<<<END>>>

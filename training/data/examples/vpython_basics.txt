@@ -1,0 +1,620 @@
+<<<PROMPT>>>
+How do I get started with VPython? Show me a first program.
+<<<PROMPT>>>
+Make a simple 3D scene in VPython with a sphere sitting on a box.
+<<<ANSWER>>>
+VPython makes 3D objects with one line each. Every position and size is a `vector(x, y, z)`:
+
+```python
+from vpython import *
+
+scene.title = "My first VPython scene"
+scene.background = color.white
+
+ground = box(pos=vector(0, -0.5, 0), size=vector(6, 0.2, 4), color=color.green)
+ball = sphere(pos=vector(0, 0.6, 0), radius=0.5, color=color.red)
+pole = cylinder(pos=vector(-2, -0.4, 0), axis=vector(0, 2, 0), radius=0.08, color=color.gray(0.5))
+flag = box(pos=vector(-1.7, 1.4, 0), size=vector(0.6, 0.4, 0.02), color=color.blue)
+```
+
+Run it with `python first_scene.py`. VPython opens the scene in your web browser; drag with the right mouse button to rotate the view and scroll to zoom.
+
+A few basics:
+- `pos` is the center of a sphere or box, but the *start* of a cylinder, arrow or cone, which then extend along `axis`.
+- `box` size is `vector(length, height, width)`, matching x, y and z.
+- Colors are vectors too: `color.red`, or `vector(1, 0.5, 0)` for orange (each part from 0 to 1).
+
+Install it with `pip install vpython` if you haven't yet.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I animate an object in VPython?
+<<<PROMPT>>>
+Make a sphere move back and forth between two walls in VPython.
+<<<ANSWER>>>
+Animation in VPython is a loop that changes `pos` a little each step. `rate()` sets how many loops run per second, and without it the browser can't draw anything:
+
+```python
+from vpython import *
+
+scene.title = "Back and forth"
+
+wall_left = box(pos=vector(-6, 0, 0), size=vector(0.2, 4, 4), color=color.gray(0.6))
+wall_right = box(pos=vector(6, 0, 0), size=vector(0.2, 4, 4), color=color.gray(0.6))
+ball = sphere(pos=vector(0, 0, 0), radius=0.5, color=color.cyan)
+
+ball.velocity = vector(4, 0, 0)  # your own attribute: units per second
+dt = 0.01
+
+while True:
+    rate(100)  # 100 steps per second, so dt = 0.01 s keeps real time
+    ball.pos = ball.pos + ball.velocity * dt
+
+    # Bounce off the inner faces of the walls
+    if ball.pos.x + ball.radius > wall_right.pos.x - wall_right.length / 2:
+        ball.velocity.x = -abs(ball.velocity.x)
+    if ball.pos.x - ball.radius < wall_left.pos.x + wall_left.length / 2:
+        ball.velocity.x = abs(ball.velocity.x)
+```
+
+How it works:
+- You can add your own attributes to any object, like `ball.velocity`. It's just a vector you update yourself.
+- `rate(100)` with `dt = 0.01` makes the animation run in real time: 100 steps of 0.01 s each second.
+- Every `while True` loop that animates needs a `rate()` call inside it, or the scene freezes.
+<<<END>>>
+
+<<<PROMPT>>>
+Drop a ball from 20 meters in VPython and stop when it hits the ground. Print how long it took.
+<<<ANSWER>>>
+Here the loop runs until the ball reaches the ground instead of forever, then prints the result:
+
+```python
+from vpython import *
+
+scene.title = "Free fall from 20 m"
+scene.center = vector(0, 10, 0)
+
+ground = box(pos=vector(0, -0.1, 0), size=vector(8, 0.2, 8), color=color.green)
+ball = sphere(pos=vector(0, 20, 0), radius=0.5, color=color.orange, make_trail=True)
+info = label(pos=vector(0, 23, 0), text="t = 0.00 s", height=16, box=False)
+
+g = vector(0, -9.8, 0)  # m/s^2
+ball.velocity = vector(0, 0, 0)
+dt = 0.005
+t = 0
+
+while ball.pos.y - ball.radius > 0:
+    rate(200)
+    ball.velocity = ball.velocity + g * dt
+    ball.pos = ball.pos + ball.velocity * dt
+    t += dt
+    info.text = f"t = {t:.2f} s   speed = {mag(ball.velocity):.1f} m/s"
+
+print(f"It hit the ground after {t:.2f} s at {mag(ball.velocity):.1f} m/s")
+print(f"Formula check: t = sqrt(2h/g) = {sqrt(2 * 19.5 / 9.8):.2f} s")
+```
+
+How it works:
+- The loop condition `ball.pos.y - ball.radius > 0` checks the bottom of the ball, so it stops when the ball touches the ground.
+- Each step updates the velocity first, then the position (the Euler-Cromer method), which stays accurate for this kind of motion.
+- The ball's center starts 19.5 m above the point where it touches the ground (20 m minus the radius), which is why the formula uses 19.5.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I make an object leave a trail in VPython?
+<<<PROMPT>>>
+Show a VPython example with trails, like a sphere moving in a spiral.
+<<<ANSWER>>>
+Set `make_trail=True` on the object. You can make the trail dots instead of a line, and limit how long it is with `retain`:
+
+```python
+from vpython import *
+
+scene.title = "Trails"
+
+spiral = sphere(pos=vector(3, 0, 0), radius=0.3, color=color.yellow,
+                make_trail=True, trail_color=color.orange, retain=300)
+dots = sphere(pos=vector(-3, 0, 0), radius=0.3, color=color.cyan,
+              make_trail=True, trail_type="points", interval=5, trail_radius=0.05)
+
+t = 0
+dt = 0.01
+while True:
+    rate(100)
+    t += dt
+    # A spiral that climbs up and down
+    spiral.pos = vector(3 * cos(2 * t), 2 * sin(0.5 * t), 3 * sin(2 * t))
+    # A wobbling circle drawn as dots
+    dots.pos = vector(-3 + 1.5 * cos(3 * t), 1.5 * sin(3 * t), 0.5 * sin(7 * t))
+    if t > 30:
+        spiral.clear_trail()  # start the trail over
+        t = 0
+```
+
+Trail options:
+- `retain=300` keeps only the last 300 points, so old trail fades away.
+- `trail_type="points"` draws dots; `interval=5` adds a dot every 5 moves.
+- `obj.clear_trail()` erases the trail; setting `obj.make_trail = False` stops adding to it.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I show text that updates in VPython, like a timer or the speed?
+<<<ANSWER>>>
+Use a `label` in the 3D scene, or `wtext` for text under the scene. Change their `text` attribute and they update right away:
+
+```python
+from vpython import *
+
+scene.title = "Labels"
+scene.caption = "Time: "
+clock_text = wtext(text="0.0 s")  # appears in the caption below the scene
+
+ball = sphere(pos=vector(-5, 0, 0), radius=0.4, color=color.red)
+tag = label(pos=ball.pos, text="", xoffset=40, yoffset=40, height=14, border=6, font="sans")
+
+ball.velocity = vector(2, 0, 0)
+dt = 0.02
+t = 0
+
+while t < 20:
+    rate(50)
+    t += dt
+    ball.velocity.y = 3 * cos(t)  # wavy motion
+    ball.pos = ball.pos + ball.velocity * dt
+    if ball.pos.x > 5:
+        ball.pos.x = -5
+
+    tag.pos = ball.pos  # the label follows the ball
+    tag.text = f"speed {mag(ball.velocity):.2f} m/s"
+    clock_text.text = f"{t:.1f} s"
+```
+
+`label` options:
+- `xoffset` and `yoffset` move the text away from `pos` (in pixels) with a line pointing back.
+- `box=False` removes the frame; `height` is the font size in pixels.
+- `label` text always faces you, no matter how you rotate the view.
+<<<END>>>
+
+<<<PROMPT>>>
+Show velocity and acceleration arrows on an object moving in a circle in VPython.
+<<<PROMPT>>>
+How do I use arrows in VPython?
+<<<ANSWER>>>
+An `arrow` starts at `pos` and points along `axis`, so a vector arrow is just `axis = some_vector * scale`. Here a ball goes around a circle with its velocity (green) and acceleration (red) drawn on it:
+
+```python
+from vpython import *
+
+scene.title = "Uniform circular motion"
+
+R = 4       # radius of the circle (m)
+omega = 1.0  # angular speed (rad/s)
+
+path = ring(pos=vector(0, 0, 0), axis=vector(0, 0, 1), radius=R, thickness=0.03, color=color.gray(0.4))
+ball = sphere(pos=vector(R, 0, 0), radius=0.3, color=color.yellow)
+v_arrow = arrow(pos=ball.pos, axis=vector(0, 1, 0), shaftwidth=0.1, color=color.green)
+a_arrow = arrow(pos=ball.pos, axis=vector(-1, 0, 0), shaftwidth=0.1, color=color.red)
+center = sphere(pos=vector(0, 0, 0), radius=0.1, color=color.white)
+
+dt = 0.01
+t = 0
+while True:
+    rate(100)
+    t += dt
+    ball.pos = vector(R * cos(omega * t), R * sin(omega * t), 0)
+    velocity = vector(-R * omega * sin(omega * t), R * omega * cos(omega * t), 0)
+    acceleration = -omega ** 2 * ball.pos  # always points to the center
+
+    v_arrow.pos = ball.pos
+    v_arrow.axis = velocity * 0.5          # scaled so it fits on screen
+    a_arrow.pos = ball.pos
+    a_arrow.axis = acceleration * 0.5
+```
+
+The velocity arrow is always tangent to the circle, and the acceleration arrow always points at the center. That's centripetal acceleration, with size ω²R.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I make a graph in VPython? Plot sin(x) and cos(x).
+<<<PROMPT>>>
+Plot a math function with VPython's graph.
+<<<ANSWER>>>
+Make a `graph`, then add `gcurve` (lines) or `gdots` (dots) to it and call `.plot(x, y)`:
+
+```python
+from vpython import *
+
+g = graph(title="sin(x) and cos(x)", xtitle="x (radians)", ytitle="y",
+          xmin=0, xmax=2 * pi, ymin=-1.2, ymax=1.2, width=600, height=350)
+sin_curve = gcurve(graph=g, color=color.blue, label="sin(x)")
+cos_dots = gdots(graph=g, color=color.red, label="cos(x)", radius=2)
+
+x = 0
+while x <= 2 * pi:
+    sin_curve.plot(x, sin(x))
+    cos_dots.plot(x, cos(x))
+    x += 0.05
+```
+
+Tips:
+- `xtitle` and `ytitle` label the axes, and `label` on a curve adds it to the legend.
+- Leave out `xmin`/`xmax` and the graph scales itself to fit the data.
+- Inside an animation loop, call `.plot(t, value)` each step to draw the graph live.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a ring of rainbow colored spheres in VPython.
+<<<PROMPT>>>
+How do I use custom colors in VPython?
+<<<ANSWER>>>
+Colors are vectors with red, green and blue from 0 to 1. For a rainbow it's easier to use hue with `color.hsv_to_rgb()`:
+
+```python
+from vpython import *
+
+scene.title = "Rainbow ring"
+scene.background = color.gray(0.1)
+
+N = 24
+R = 5
+balls = []
+for i in range(N):
+    angle = 2 * pi * i / N
+    hue = i / N  # 0 to 1 goes once around the color wheel
+    ball = sphere(pos=vector(R * cos(angle), R * sin(angle), 0), radius=0.5,
+                  color=color.hsv_to_rgb(vector(hue, 1, 1)))
+    balls.append(ball)
+
+# Spin the colors around the ring
+shift = 0
+while True:
+    rate(30)
+    shift += 0.01
+    for i, ball in enumerate(balls):
+        ball.color = color.hsv_to_rgb(vector((i / N + shift) % 1, 1, 1))
+```
+
+Other ways to pick colors:
+- Built-in names: `color.red`, `color.green`, `color.blue`, `color.yellow`, `color.cyan`, `color.magenta`, `color.orange`, `color.purple`, `color.white`, `color.black`.
+- `color.gray(0.3)` for a gray (0 is black, 1 is white).
+- `vector(1, 0.4, 0.7)` for any mix, like pink.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I make the VPython camera follow a moving object?
+<<<ANSWER>>>
+Use `scene.camera.follow(obj)`. The view keeps the object centered while you can still rotate and zoom. Set `scene.range` to choose how much of the world you see:
+
+```python
+from vpython import *
+
+scene.title = "Camera following a rolling ball"
+scene.range = 6                    # how many units from the center to the edge of the view
+scene.forward = vector(0, -0.4, -1)  # look slightly downward
+
+track = box(pos=vector(50, -0.6, 0), size=vector(120, 0.2, 4), color=color.gray(0.5))
+for x in range(0, 101, 10):
+    box(pos=vector(x, 0, -1.5), size=vector(0.3, 1, 0.3), color=color.white)  # distance markers
+    label(pos=vector(x, 1, -1.5), text=f"{x} m", box=False, height=12)
+
+ball = sphere(pos=vector(0, 0, 0), radius=0.5, color=color.red, make_trail=True, retain=100)
+ball.velocity = vector(5, 0, 0)
+scene.camera.follow(ball)
+
+dt = 0.02
+while ball.pos.x < 100:
+    rate(50)
+    ball.pos = ball.pos + ball.velocity * dt
+    ball.rotate(angle=-mag(ball.velocity) * dt / ball.radius, axis=vector(0, 0, 1))  # roll
+```
+
+Other camera controls:
+- `scene.center = vector(...)` sets the point the camera looks at.
+- `scene.autoscale = False` stops the view from zooming out as objects move away.
+- `scene.camera.pos` and `scene.camera.axis` give full control if you need it.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I use the keyboard in VPython? I want to move a drone up, down, left and right.
+<<<PROMPT>>>
+VPython keyboard controls example
+<<<ANSWER>>>
+`keysdown()` returns the keys held right now, as names like `'left'`, `'up'`, `'w'` or `' '` (space). Check it inside the loop for smooth movement:
+
+```python
+from vpython import *
+
+scene.title = "Fly the drone"
+scene.caption = "Arrow keys: move left/right/forward/back.  W/S: up and down.  Space: lights."
+scene.range = 10
+
+floor = box(pos=vector(0, -0.1, 0), size=vector(20, 0.2, 20), color=color.green)
+body = box(pos=vector(0, 0, 0), size=vector(1.2, 0.3, 1.2), color=color.gray(0.3))
+lamp = sphere(pos=vector(0, -0.2, 0), radius=0.15, color=color.gray(0.5))
+drone = compound([body, lamp], pos=vector(0, 2, 0))
+
+speed = 4  # units per second
+dt = 0.02
+lights_on = False
+
+
+def on_key(evt):
+    global lights_on
+    if evt.key == " ":  # one-time action: toggle on each press
+        lights_on = not lights_on
+        drone.color = color.yellow if lights_on else color.white
+
+
+scene.bind("keydown", on_key)
+
+while True:
+    rate(50)
+    keys = keysdown()
+    move = vector(0, 0, 0)
+    if "left" in keys:
+        move.x -= 1
+    if "right" in keys:
+        move.x += 1
+    if "up" in keys:
+        move.z -= 1
+    if "down" in keys:
+        move.z += 1
+    if "w" in keys:
+        move.y += 1
+    if "s" in keys:
+        move.y -= 1
+    drone.pos = drone.pos + move * speed * dt
+    drone.pos.y = max(0.3, drone.pos.y)  # don't go through the floor
+```
+
+Click the scene first so the browser sends your key presses to it. `keysdown()` is for held keys; `scene.bind("keydown", ...)` is for one action per press.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I handle mouse clicks in VPython? Put a sphere where I click.
+<<<ANSWER>>>
+Bind a function to `"click"`; the event's `pos` is where you clicked in 3D (on the plane facing you). `scene.mouse.pick` tells you which object you clicked on, if any:
+
+```python
+from vpython import *
+
+scene.title = "Click to add spheres, click a sphere to remove it"
+scene.range = 10
+scene.autoscale = False
+
+placed = []
+
+
+def on_click(evt):
+    hit = scene.mouse.pick  # the object under the mouse, or None
+    if hit in placed:
+        hit.visible = False
+        placed.remove(hit)
+    else:
+        ball = sphere(pos=evt.pos, radius=0.5,
+                      color=color.hsv_to_rgb(vector(random(), 0.8, 1)))
+        placed.append(ball)
+
+
+scene.bind("click", on_click)
+box(pos=vector(0, 0, -1), size=vector(20, 20, 0.1), color=color.gray(0.2))  # a backdrop
+
+while True:
+    rate(30)
+    for ball in placed:
+        ball.radius = 0.5 + 0.1 * sin(5 * ball.pos.x)  # a little wobble
+```
+
+`random()` comes with `from vpython import *` and gives a number from 0 to 1. To delete an object in VPython, make it invisible (`visible = False`) and drop your reference to it.
+<<<END>>>
+
+<<<PROMPT>>>
+Add buttons and sliders to a VPython simulation: a pause button, a speed slider and a menu to pick the color.
+<<<PROMPT>>>
+How do VPython widgets work?
+<<<ANSWER>>>
+Widgets appear below the scene. Each one calls your function through `bind`, and the function gets the widget, so you can read its value:
+
+```python
+from vpython import *
+
+scene.title = "A spinning top with controls"
+top = cone(pos=vector(0, -1, 0), axis=vector(0, 2, 0), radius=1, color=color.orange)
+disk = cylinder(pos=vector(0, 0.2, 0), axis=vector(0, 0.2, 0), radius=1.2, color=color.orange)
+
+running = True
+spin_speed = 2.0  # radians per second
+
+
+def toggle(b):
+    global running
+    running = not running
+    b.text = "Run" if not running else "Pause"
+
+
+def set_speed(s):
+    global spin_speed
+    spin_speed = s.value
+    speed_text.text = f" {s.value:.1f} rad/s"
+
+
+def set_color(m):
+    colors = {"Orange": color.orange, "Blue": color.blue, "Green": color.green}
+    top.color = disk.color = colors[m.selected]
+
+
+button(text="Pause", bind=toggle)
+scene.append_to_caption("\n\nSpin speed: ")
+slider(min=0, max=10, value=spin_speed, step=0.1, length=250, bind=set_speed)
+speed_text = wtext(text=f" {spin_speed:.1f} rad/s")
+scene.append_to_caption("\n\nColor: ")
+menu(choices=["Orange", "Blue", "Green"], index=0, bind=set_color)
+
+dt = 0.02
+while True:
+    rate(50)
+    if running:
+        top.rotate(angle=spin_speed * dt, axis=vector(0, 1, 0), origin=top.pos)
+        disk.rotate(angle=spin_speed * dt, axis=vector(0, 1, 0), origin=top.pos)
+```
+
+The widgets:
+- `button(text=..., bind=f)` calls `f(button)` on each click.
+- `slider(min=, max=, value=, step=, bind=f)` calls `f(slider)` as you drag; read `slider.value`.
+- `menu(choices=[...], bind=f)`: read `menu.selected` (the text) or `menu.index`.
+- `wtext(text=...)` is text you can change later, and `scene.append_to_caption("\n")` adds line breaks between widgets.
+- Also: `checkbox(text=, bind=)` with `.checked`, and `winput(bind=)` for typed input.
+<<<END>>>
+
+<<<PROMPT>>>
+Build a snowman out of shapes in VPython and make it turn around.
+<<<PROMPT>>>
+How do I group several VPython objects into one?
+<<<ANSWER>>>
+Build the parts, then join them with `compound()`. The compound moves and rotates as one object:
+
+```python
+from vpython import *
+
+scene.title = "Snowman"
+scene.background = vector(0.6, 0.8, 1)  # light blue sky
+
+bottom = sphere(pos=vector(0, 0, 0), radius=1.0, color=color.white)
+middle = sphere(pos=vector(0, 1.4, 0), radius=0.7, color=color.white)
+head = sphere(pos=vector(0, 2.4, 0), radius=0.45, color=color.white)
+nose = cone(pos=vector(0, 2.4, 0.4), axis=vector(0, 0, 0.5), radius=0.08, color=color.orange)
+eye1 = sphere(pos=vector(-0.15, 2.55, 0.38), radius=0.05, color=color.black)
+eye2 = sphere(pos=vector(0.15, 2.55, 0.38), radius=0.05, color=color.black)
+hat_brim = cylinder(pos=vector(0, 2.78, 0), axis=vector(0, 0.05, 0), radius=0.5, color=color.black)
+hat_top = cylinder(pos=vector(0, 2.8, 0), axis=vector(0, 0.5, 0), radius=0.3, color=color.black)
+
+snowman = compound([bottom, middle, head, nose, eye1, eye2, hat_brim, hat_top])
+ground = box(pos=vector(0, -1.05, 0), size=vector(8, 0.1, 8), color=color.white)
+
+while True:
+    rate(60)
+    snowman.rotate(angle=0.01, axis=vector(0, 1, 0))
+```
+
+After `compound()` the original parts are merged into it, so move or rotate `snowman`, not the parts. A compound keeps each part's color.
+<<<END>>>
+
+<<<PROMPT>>>
+Draw a 3D Lissajous curve in VPython.
+<<<PROMPT>>>
+How do I draw a line or a path in VPython?
+<<<ANSWER>>>
+Use `curve`. Give it a color and thickness, then `append()` points to it. Here a Lissajous figure draws itself point by point:
+
+```python
+from vpython import *
+
+scene.title = "3D Lissajous curve"
+
+path = curve(color=color.cyan, radius=0.03)
+pen = sphere(radius=0.08, color=color.yellow)
+
+# Axes for reference
+for axis_dir, c in ((vector(1, 0, 0), color.red), (vector(0, 1, 0), color.green), (vector(0, 0, 1), color.blue)):
+    arrow(pos=vector(0, 0, 0), axis=axis_dir * 1.5, shaftwidth=0.02, color=c)
+
+t = 0
+while t < 2 * pi:
+    rate(100)
+    point = vector(sin(3 * t), sin(2 * t), cos(5 * t))
+    path.append(point)
+    pen.pos = point
+    t += 0.01
+```
+
+More about `curve`:
+- `curve(pos=[v1, v2, v3])` makes the whole line at once.
+- `radius=0` draws a thin line, and bigger values make a tube.
+- `path.clear()` empties it, and `path.modify(i, pos=v)` moves point number i.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a starfield of random points in VPython.
+<<<ANSWER>>>
+For lots of dots, `points` is much faster than separate spheres:
+
+```python
+from vpython import *
+
+scene.title = "Starfield"
+scene.background = color.black
+scene.range = 60
+
+stars = points(radius=2, color=color.white)
+for i in range(2000):
+    stars.append(vector.random() * 100)  # random position in a 200-unit cube
+
+bright = points(radius=4, color=vector(1, 0.9, 0.6))
+for i in range(100):
+    bright.append(vector.random() * 100)
+
+while True:
+    rate(30)
+    scene.camera.rotate(angle=0.002, axis=vector(0, 1, 0))  # slowly turn the view
+```
+
+`vector.random()` gives a vector with each part between -1 and 1. For `points`, `radius` is in pixels, so stars stay the same size on screen however far away they are.
+<<<END>>>
+
+<<<PROMPT>>>
+Make a glowing sun with a textured Earth next to it in VPython.
+<<<PROMPT>>>
+How do lights and textures work in VPython?
+<<<ANSWER>>>
+Make the sun `emissive` so it glows, and put a `local_light` inside it so it lights the planet. Turning off the default lights makes the dark side of the Earth really dark:
+
+```python
+from vpython import *
+
+scene.title = "Sun and Earth"
+scene.background = color.black
+scene.lights = []  # remove the default lights
+scene.ambient = color.gray(0.15)
+
+sun = sphere(pos=vector(0, 0, 0), radius=2, color=color.yellow, emissive=True)
+sunlight = local_light(pos=sun.pos, color=color.white)
+earth = sphere(pos=vector(8, 0, 0), radius=0.8, texture=textures.earth)
+
+while True:
+    rate(60)
+    earth.rotate(angle=0.02, axis=vector(0, 1, 0))  # the Earth spins
+```
+
+Built-in textures include `textures.earth`, `textures.wood`, `textures.metal`, `textures.rock`, `textures.stucco` and `textures.flower`. Use `distant_light(direction=vector(...))` for light like sunshine that comes from far away in one direction.
+<<<END>>>
+
+<<<PROMPT>>>
+How do I set up the VPython window? Change its size, title, caption and background.
+<<<PROMPT>>>
+Make two separate 3D views in VPython.
+<<<ANSWER>>>
+The default view is called `scene`. Set its attributes, or make your own with `canvas()`. Each new object goes into the most recently made canvas, unless you say `canvas=...`:
+
+```python
+from vpython import *
+
+left = canvas(title="Box view", width=400, height=300, background=color.white, align="left")
+box(canvas=left, size=vector(2, 1, 1), color=color.blue)
+
+right = canvas(title="Sphere view", width=400, height=300, background=color.gray(0.2), align="left")
+ball = sphere(canvas=right, radius=1, color=color.red)
+right.caption = "Two canvases side by side"
+
+text(canvas=right, text="Hi!", pos=vector(-0.6, 1.3, 0), height=0.5, color=color.yellow)
+
+while True:
+    rate(30)
+    ball.rotate(angle=0.02, axis=vector(0, 1, 0))
+```
+
+Useful canvas settings:
+- `title` and `caption` are text above and below the 3D area.
+- `width` and `height` are in pixels; `align="left"` puts canvases side by side.
+- `background` is a color vector; `range`, `center` and `forward` control the view.
+- `text(...)` makes real 3D text, while `label(...)` is flat text that always faces you.
+<<<END>>>
