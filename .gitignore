@@ -18,3 +18,12 @@ dist/
 training/models/
 training/out/
 training/tools/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+*_api_key.txt
+
+# Local tool cache
+.impeccable/hook.cache.json
